@@ -4,7 +4,7 @@ import math, os
 import numpy as np
 import argparse
 from argparse import RawTextHelpFormatter
-from utils.config import GEN_SETTING
+from utils.config import GEN_SETTING, VQA_SETTING
 
 def entropy(x):
     eps = 1e-10
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--generator', choices=list(GEN_SETTING['generators'].keys()), help="dataset to use")
     parser.add_argument('--dataset', choices=['coco', 'flickr_30k', 'winobias', 'ffhq'], help="dataset to use")
     parser.add_argument('--mode', choices=['original', 'generated'], help="dataset to use")
-    parser.add_argument('--vqa_model', choices=['llava-1.5-13b'], default='llava-1.5-13b', help="dataset to use")
+    parser.add_argument('--vqa_model', choices=list(VQA_SETTING['vqa_models'].keys()), default='llava-1.5-13b', help="dataset to use")
     opt = vars(parser.parse_args())
 
     dataset = opt['dataset']
