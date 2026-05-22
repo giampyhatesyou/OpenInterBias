@@ -15,7 +15,20 @@ open_clip_torch
 openai-clip
 promptcap==1.0.3
 spacy<3.8
-salesforce-lavis==1.0.2
+timm==0.4.12
+webdataset
+omegaconf
+pycocoevalcap
+decord
+contexttimer
+ftfy
+streamlit
+opencv-python-headless
+python-magic
+pre-commit
+opendatasets
+torchvision
 transformers==4.30.2
 ninja==1.11.1.1
+
 
