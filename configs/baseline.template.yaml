@@ -1,0 +1,85 @@
+# =============================================================================
+# Run config template — OpenBias baseline reproduction
+# =============================================================================
+# Copy this file into runs/<run-name>/config.snapshot.yaml, fill in TODOs,
+# freeze it (do not edit after launch).
+#
+# This file is documentation, not a runtime config. Upstream OpenBias entry
+# points read utils/config.py.
+# =============================================================================
+
+run:
+  name: "TODO_short-slug"        # e.g. "baseline_coco-sdxl"
+  date: "TODO_YYYY-MM-DD"
+  purpose: |
+    TODO — one paragraph. Why are we running this? What do we expect to learn?
+    What would success / failure look like?
+  cluster: "baldo"               # or "local"
+  owner: "TODO_name"
+
+# -----------------------------------------------------------------------------
+# Stage 1 — Bias proposal (LLM)
+# -----------------------------------------------------------------------------
+bias_proposal:
+  enabled: true
+  dataset: "coco"                # one of: coco, flickr_30k, ffhq, stylegan3_ffhq, winobias
+  n_prompts_per_image: 3         # mirrors BIAS_PROPOSAL_SETTING[dataset]['n_prompts_per_image']
+  llm:
+    model: "llama-2-7b-chat"
+    weights_path: "TODO_/path/to/llama-2-7b-chat"
+    tokenizer_path: "TODO_/path/to/llama-2-7b-chat/tokenizer.model"
+    temperature: 0.6
+    top_p: 0.9
+    max_seq_len: 2800
+    seed: 0
+  expected_outputs:
+    - "proposed_biases/coco/3/coco_train.json"
+    - "proposed_biases/coco/3/coco_train_not_json.json"
+
+# -----------------------------------------------------------------------------
+# Stage 2 — Image generation
+# -----------------------------------------------------------------------------
+image_generation:
+  enabled: true
+  generator: "sd-xl"             # one of: sd-xl, sd-1.5, sd-2, stylegan3-ffhq
+  n_images_per_caption: 10
+  inference_steps: 40
+  seed: 0
+  batch_size: 1
+  max_prompts_per_bias: 100
+  filter_threshold: 0.50         # post-processing filter on bias support
+  hard_threshold: 0
+  merge_threshold: 0.75
+  expected_output_dir: "sd_generated_dataset/coco/train/sd-xl/"
+
+# -----------------------------------------------------------------------------
+# Stage 3 — VQA assessment
+# -----------------------------------------------------------------------------
+vqa:
+  enabled: true
+  model: "llava-1.5-13b"         # paper's default
+  mode: "generated"              # generated | original
+  workers: 4
+  expected_outputs:
+    - "results/VQA/coco/generated/sd-xl/llava-1.5-13b/data_counts.json"
+    - "results/VQA/coco/generated/sd-xl/llava-1.5-13b/vqa_answers.json"
+
+# -----------------------------------------------------------------------------
+# Stage 4 — Plotting / quantification
+# -----------------------------------------------------------------------------
+plotting:
+  enabled: true
+  expected_outputs:
+    - "results/VQA/coco/generated/sd-xl/llava-1.5-13b/context_aware.png"
+    - "results/VQA/coco/generated/sd-xl/llava-1.5-13b/context_free.png"
+
+# -----------------------------------------------------------------------------
+# Budget (declared BEFORE launching — AGENT.md compute policy)
+# -----------------------------------------------------------------------------
+budget:
+  gpus: 1                        # number of GPUs requested on baldo
+  wallclock_estimate_hours: 0    # TODO fill in honest estimate
+  storage_estimate_gb: 0         # TODO
+  notes: |
+    TODO — note any flag affecting cost (e.g. n_prompts_per_image,
+    n_images_per_caption, max_prompts_per_bias).

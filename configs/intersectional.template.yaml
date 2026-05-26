@@ -1,0 +1,89 @@
+# =============================================================================
+# Run config template — Intersectional post-hoc analysis (Stage 5)
+# =============================================================================
+# This stage runs AFTER the baseline (stages 1-4) has produced a valid
+# vqa_answers.json. It does NOT require GPUs.
+#
+# Pre-requisites in the run folder:
+#   - A baseline run identified by `consumes_baseline_run` exists, with:
+#       results/VQA/<dataset>/<mode>/<generator>/<vqa_model>/vqa_answers.json
+#       proposed_biases/<dataset>/<n>/<dataset>_*.json
+#
+# Schema reference: intersectional/SCHEMA.md
+# Open scope questions: docs/SCHEMA_DECISION.md
+# =============================================================================
+
+run:
+  name: "TODO_intersectional-slug"   # e.g. "intersectional_coco-sdxl_v1"
+  date: "TODO_YYYY-MM-DD"
+  purpose: |
+    TODO — one paragraph. Which pairs are we measuring? On which baseline
+    outputs? What do we expect (e.g. "we expect high MI on gender × race for
+    person-related captions; low MI on object-related ones").
+  cluster: "baldo"                   # or "local" — CPU is enough
+  owner: "TODO_name"
+
+# -----------------------------------------------------------------------------
+# Which baseline this analysis builds on
+# -----------------------------------------------------------------------------
+consumes_baseline_run: "TODO_runs/<baseline-run-name>"
+# These must match the baseline's choices, otherwise the file paths won't resolve
+baseline:
+  dataset: "coco"                    # coco | flickr_30k
+  mode: "generated"                  # generated | original
+  generator: "sd-xl"                 # sd-xl | sd-1.5 | sd-2 | stylegan3-ffhq
+  vqa_model: "llava-1.5-13b"
+
+# -----------------------------------------------------------------------------
+# Pairing rules (see docs/SCHEMA_DECISION.md Q1-Q3)
+# -----------------------------------------------------------------------------
+pairing:
+  arity: 2                           # 2 = pairs only (current default). 3+ not supported yet.
+  same_refer_to: true                # Q2: restrict pairs to same refer_to bucket
+  exclude_present_in_prompt: true    # Q3: both attributes must have present_in_prompt=false
+  min_support_intersect: 30          # min |captions(A) ∩ captions(B)| to consider the pair
+  min_support_per_joint_cell: 5      # min support per (a_i, b_j) cell; below → smoothing or drop
+  exclude_classes:                   # Q5: classes excluded before counting
+    - "unknown"
+    - "other"
+    - "non-binary"
+
+# -----------------------------------------------------------------------------
+# Scoring (see intersectional/SCHEMA.md)
+# -----------------------------------------------------------------------------
+scoring:
+  metrics:
+    - "normalized_joint_entropy"     # 1 - H(A,B) / log(|A|*|B|)
+    - "normalized_mutual_information" # I(A;B) / min(H(A), H(B))
+  contexts:
+    - "context_free"                 # aggregated across all captions
+    - "context_aware"                # mean over per-caption joint distributions
+  smoothing: "laplace"               # none | laplace | miller-madow
+  laplace_alpha: 1.0
+  significance:
+    permutation_test: false          # if true, shuffle B-predictions to get an empirical null
+    n_permutations: 1000
+
+# -----------------------------------------------------------------------------
+# Output
+# -----------------------------------------------------------------------------
+output:
+  results_path: "results/intersectional/<dataset>/<mode>/<generator>/<vqa_model>/intersectional_results.json"
+  plots:
+    - "joint_intensity_ranking.png"          # bar chart per pair
+    - "mutual_information_ranking.png"       # bar chart per pair
+    - "mi_vs_marginals_scatter.png"          # the key plot: MI vs sum of marginal intensities
+    - "joint_heatmap_top5.png"               # heatmap per top-5 pairs
+
+# -----------------------------------------------------------------------------
+# Budget — CPU only, declared up-front per AGENT.md compute policy
+# -----------------------------------------------------------------------------
+budget:
+  gpus: 0
+  cpus: 4
+  memory_gb: 16
+  wallclock_estimate_minutes: 30
+  storage_estimate_mb: 100
+  notes: |
+    Post-hoc pairing + scoring is CPU-bound and cheap. The expensive part
+    (image gen + VQA) lives in the baseline run referenced above.

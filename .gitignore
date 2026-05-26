@@ -163,3 +163,29 @@ openbias/
 weights/
 .vscode/
 AGENT.md
+
+# === Fork-specific additions ===
+# Run artifacts (per AGENT.md naming convention runs/YYYY-MM-DD_*)
+runs/*
+!runs/README.md
+!runs/.gitkeep
+# Editor / OS
+.DS_Store
+.idea/
+*.swp
+*.swo
+# Experiment tracking
+wandb/
+mlruns/
+# Scratch / temporary
+scratch/
+tmp/
+# Local-only credentials/config overrides
+*.local.yaml
+*.local.yml
+config.local.py
+# Python build noise not covered above
+*.pyc
+# Cluster job artifacts
+slurm-*.out
+*.sbatch.log
