@@ -1,9 +1,26 @@
 import re
+import os
 import utils.datasets as datasets
 import utils.bias_proposals_manager as bias_proposals_manager
 # from utils.utils import get_image_name_coco, get_image_name_flickr, get_image_name_open_images
 from utils.utils import get_image_name_coco, get_image_name_flickr
 from utils.utils import valid_bias_real_images, valid_bias_generated_images, filter_caption_generated, filter_caption_real
+
+# ============================================================================
+# Environment Variable Helper
+# ============================================================================
+# Reads paths from environment variables with fallback to default placeholders.
+# Set these on your machine or cluster:
+#   export OPENBIAS_LLAMA_PATH="/path/to/llama-2-7b-chat"
+#   export OPENBIAS_LLAMA_TOKENIZER_PATH="/path/to/llama-2-7b-chat/tokenizer.model"
+#   export OPENBIAS_COCO_PATH="/path/to/coco"
+#   export OPENBIAS_FLICKR30K_PATH="/path/to/flickr_30k"
+#   export OPENBIAS_FFHQ_PATH="/path/to/FFHQ"
+#   export OPENBIAS_WINOBIAS_PATH="/path/to/winobias"
+# ============================================================================
+def get_path(env_var, default_path):
+    """Read path from environment variable, or use default if not set."""
+    return os.getenv(env_var, default_path)
 
 #####################################################################################
 #######                                                                       #######
@@ -327,11 +344,11 @@ BIAS_PROPOSAL_SETTING = {
     'batch_size': 12,
     'max_seq_len': 2800,
     'llama2': {
-        'weights_path': '/<insert>/<path>/<here>/llama-2-7b-chat',
-        'tokenizer_path': '/<insert>/<path>/<here>/llama-2-7b-chat/tokenizer.model'
+        'weights_path': get_path('OPENBIAS_LLAMA_PATH', '/<insert>/<path>/<here>/llama-2-7b-chat'),
+        'tokenizer_path': get_path('OPENBIAS_LLAMA_TOKENIZER_PATH', '/<insert>/<path>/<here>/llama-2-7b-chat/tokenizer.model')
     },
     'coco': {
-        'path': '/<insert>/<path>/<here>/coco',
+        'path': get_path('OPENBIAS_COCO_PATH', '/<insert>/<path>/<here>/coco'),
         'mode': '_train',
         'n_prompts_per_image': 3,
         'categories': ['person'],
@@ -340,7 +357,7 @@ BIAS_PROPOSAL_SETTING = {
         'system_prompt': BIAS_PROPOSAL_SYSTEM_PROMPT['std_domain'],
     },
     'flickr_30k': {
-        'path': '/<insert>/<path>/<here>/flickr_30k',
+        'path': get_path('OPENBIAS_FLICKR30K_PATH', '/<insert>/<path>/<here>/flickr_30k'),
         'mode': '',
         'n_prompts_per_image': 3,
         'dataset': datasets.Flickr_30k,
@@ -348,7 +365,7 @@ BIAS_PROPOSAL_SETTING = {
         'system_prompt': BIAS_PROPOSAL_SYSTEM_PROMPT['std_domain'],
     },
     'ffhq': {
-        'path': '/<insert>/<path>/<here>/FFHQ',
+        'path': get_path('OPENBIAS_FFHQ_PATH', '/<insert>/<path>/<here>/FFHQ'),
         'mode': '',
         'n_prompts_per_image': 1,
         'dataset': datasets.Captioned_dataset,
@@ -364,7 +381,7 @@ BIAS_PROPOSAL_SETTING = {
         'system_prompt': BIAS_PROPOSAL_SYSTEM_PROMPT['facial_domain'],
     },
     'winobias': {
-        'path': '/<insert>/<path>/<here>/winobias',
+        'path': get_path('OPENBIAS_WINOBIAS_PATH', '/<insert>/<path>/<here>/winobias'),
         'mode': '',
         'n_prompts_per_image': 1,
         'dataset': datasets.WinoBias,

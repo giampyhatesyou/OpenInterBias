@@ -53,6 +53,23 @@ pip install -r requirements.txt
 
 This code has been tested with `PyTorch 2.2.1`, `CUDA 11.8` and `python 3.10.9`.
 
+## Configuration (Multi-Machine Setup)
+
+**Important:** Before running the pipeline, configure paths for your machine using environment variables.
+
+```bash
+# Copy the environment template
+cp .env.example .env
+
+# Edit .env with your paths
+nano .env
+
+# Source before running
+source .env
+```
+
+See [SETUP.md](SETUP.md) for detailed instructions on configuring paths for different machines/clusters.
+
 ## OpenBias Pipeline
 OpenBias is composed of three main steps:
 1. **Bias Proposal**: Given a set of captions, the Large Language Model (LLM) proposes biases.
@@ -63,11 +80,9 @@ Please note that captions are required for running this pipeline.
 We provide support for `COCO`, `Flickr30k` and `winobias` datasets.  
 All the scripts of this pipeline `support multi GPUs`.
 
-Please before running the pipeline make sure to **correctly update** the config file (`./utils/config.py`) with the correct paths to the datasets and model weights (e.g., LLMs and VQAs).  
-Please note that the `steps.sh` script includes a full pipeline script example.
+**Configuration:** Make sure to configure `OPENBIAS_LLAMA_PATH` and dataset paths in `.env` before running any pipeline step. See [SETUP.md](SETUP.md) for details.
 
 ### Bias Proposal
-Before running this step, make sure to update `BIAS_PROPOSAL_SETTING` of the `./utils/config.py` file.
 
 The bias proposal step can be run using the following command:
 ```bash
