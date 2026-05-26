@@ -1,3 +1,24 @@
+<!--
+=====================================================================
+OpenInterBias fork — Intersectional extension of OpenBias (work in progress)
+=====================================================================
+
+This repository is a fork of Picsart-AI-Research/OpenBias maintained for
+academic work on **intersectional bias detection** in text-to-image
+generative models. The upstream README is preserved verbatim below; the
+extension lives alongside, not on top of, the original pipeline.
+
+See:
+  - ARCHITECTURE_NOTE.md           — high-level mapping + extension strategy
+  - intersectional/SCHEMA.md       — pairwise intersectional schema
+  - intersectional/ARCHITECTURE_NOTE.md — how the extension plugs in post-hoc
+  - docs/SCHEMA_DECISION.md        — open scope questions for the group
+  - docs/SETUP_BALDO.md            — running the baseline on the GPU cluster
+=====================================================================
+-->
+
+> **Fork: OpenInterBias** — extension of OpenBias toward **intersectional (joint-attribute) bias detection**. The upstream OpenBias pipeline is preserved unchanged; the intersectional analysis is being added as a non-destructive, post-hoc stage that consumes the cached VQA outputs. See [`ARCHITECTURE_NOTE.md`](ARCHITECTURE_NOTE.md) (§4 *Extension Strategy*, §5 *Repo Layout*) for the full picture.
+
 <div align="center">
 
 # OpenBias: Open-set Bias Detection in Text-to-Image Generative Models

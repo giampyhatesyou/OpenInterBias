@@ -1,0 +1,62 @@
+# =============================================================================
+# Run config template — Small pilot (debugging / interface validation)
+# =============================================================================
+# Use this for the very first end-to-end test on baldo. Budget tiny.
+# Purpose: prove the pipeline runs end-to-end without errors. NOT a result.
+# =============================================================================
+
+run:
+  name: "TODO_pilot-slug"        # e.g. "pilot_coco-sdxl_5cap"
+  date: "TODO_YYYY-MM-DD"
+  purpose: |
+    Smoke-test all 4 stages on a tiny subset of COCO captions. We want to
+    verify: weights load, paths are correct, DDP initialises, outputs land
+    where expected. NO claims about bias intensity will be drawn from this.
+  cluster: "baldo"
+  owner: "TODO_name"
+
+bias_proposal:
+  enabled: true
+  dataset: "coco"
+  n_prompts_per_image: 3
+  llm:
+    model: "llama-2-7b-chat"
+    weights_path: "TODO_/path/to/llama-2-7b-chat"
+    tokenizer_path: "TODO_/path/to/llama-2-7b-chat/tokenizer.model"
+    temperature: 0.6
+    top_p: 0.9
+    max_seq_len: 2800
+    seed: 0
+  # NOTE: to actually limit to N captions, the upstream Coco dataset class
+  # in utils/datasets.py has a commented-out slicing on lines ~49-51.
+  # For a real pilot, either uncomment that locally (do NOT commit) or
+  # accept the full COCO bias proposal stage and only restrict downstream.
+  pilot_note: "Restrict downstream stages to a handful of caption_ids."
+
+image_generation:
+  enabled: true
+  generator: "sd-xl"
+  n_images_per_caption: 2        # ↓ from 10
+  inference_steps: 30            # ↓ from 40
+  seed: 0
+  batch_size: 1
+  max_prompts_per_bias: 5        # ↓↓ from 100
+  filter_threshold: 0.50
+  hard_threshold: 0
+  merge_threshold: 0.75
+
+vqa:
+  enabled: true
+  model: "llava-1.5-13b"
+  mode: "generated"
+  workers: 2
+
+plotting:
+  enabled: true
+
+budget:
+  gpus: 1
+  wallclock_estimate_hours: 1    # ballpark
+  storage_estimate_gb: 2
+  notes: |
+    Pilot — strict upper bound. If wallclock exceeds 2h, abort and investigate.
