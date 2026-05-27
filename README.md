@@ -89,7 +89,7 @@ The bias proposal step can be run using the following command:
 CUDA_VISIBLE_DEVICES=0 python bias_proposals.py 
     --workers 6 
     --dataset 'coco' 
-```
+ ```
 This script outputs a JSON file containing the proposed biases under the `./proposed_biases/` folder.
 The supported datasets are `coco` and `flickr30k`.  
 The number of workers and GPUs can be adjusted according to the available resources.
