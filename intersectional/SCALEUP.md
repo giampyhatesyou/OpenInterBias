@@ -5,6 +5,23 @@ age×gender=48, age×race=10, gender×race=6 joint images → intersectional NMI
 demographic captions that would fix this **already exist** in the stage-1 proposals; they were never
 generated. This plan generates a focused subset of them, **without touching the baseline**.
 
+## ⚡ Quickstart — 3 commands (use the scripts; details below are the "under the hood")
+```bash
+# 1) LAPTOP, from repo root — copy demo inputs + scripts to baldo:
+bash cluster/push_to_baldo.sh
+
+# 2) baldo — patch config + dry-run gate + submit GPU job (all automatic):
+ssh baldo
+cd ~/OpenInterBias && bash cluster/run_demo.sh smoke     # then later:  bash cluster/run_demo.sh 6k
+
+# 3) LAPTOP, after the job log shows "=== DONE ===" — download results + run Stage 5:
+bash cluster/pull_from_baldo.sh
+```
+`run_demo.sh` patches `utils/config.py`, runs the dry-run gate (aborts if the count is wrong),
+submits `cluster/ob_demo.sbatch` (generation + VQA on 2 GPU), and the job **auto-reverts the config**
+when it finishes. Watch progress with `squeue -u $USER` and `tail -f ob_demo_<id>.out`.
+The sections below explain what each script does, for reference / debugging.
+
 ## 0. What you'll get & how long (2 GPUs, ~3.5 s/img effective)
 
 | tier | file | imgs | time @2×L40S | pair ceilings (age×gen / age×race / gen×race) |
