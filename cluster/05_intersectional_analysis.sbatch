@@ -51,14 +51,24 @@ if [ ! -f intersectional/run_analysis.py ]; then
 fi
 
 # --- the actual stage (CPU-only) ---
-# Expected CLI mirrors run_VQA.py for consistency with the baseline.
-python -m intersectional.run_analysis \
-    --config "${OPENBIAS_RUN_DIR}/config.snapshot.yaml" \
+# CLI mirrors run_VQA.py / make_plots.py. PYTHONHASHSEED=0 keeps set-ordering deterministic.
+export PYTHONHASHSEED=0
+python intersectional/run_analysis.py \
     --dataset coco \
     --generator sd-xl \
     --mode generated \
     --vqa_model llava-1.5-13b \
+    --cluster person \
     2>&1 | tee "${OPENBIAS_RUN_DIR}/logs/05_intersectional.out"
 
+python intersectional/make_plots.py \
+    --dataset coco \
+    --generator sd-xl \
+    --mode generated \
+    --vqa_model llava-1.5-13b \
+    --cluster person \
+    --min_support 5 \
+    2>&1 | tee -a "${OPENBIAS_RUN_DIR}/logs/05_intersectional.out"
+
 echo "DONE: stage 5 intersectional analysis"
-echo "Expected output: results/intersectional/.../intersectional_results.json"
+echo "Expected output: results/intersectional/coco/generated/sd-xl/llava-1.5-13b/intersectional_results.json"

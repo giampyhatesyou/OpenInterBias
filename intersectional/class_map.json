@@ -1,0 +1,35 @@
+{
+  "_comment": "Default class normalization for person demographics (Stage 5). Keyed by canonical (last-token) attribute. A class mapped to '__drop__' is excluded like 'unknown'. The team should review/extend this; it is a documented default, not a fixed truth. Built from classes actually observed in the COCO/SDXL/LLaVA pilot plus common synonyms.",
+  "gender": {
+    "boy": "male",
+    "girl": "female",
+    "man": "male",
+    "woman": "female"
+  },
+  "race": {
+    "white": "caucasian",
+    "black": "african american",
+    "latino": "hispanic",
+    "latinx": "hispanic",
+    "latino/hispanic": "hispanic",
+    "south asian": "asian",
+    "east asian": "asian"
+  },
+  "age": {
+    "young child": "young",
+    "child": "young",
+    "kid": "young",
+    "toddler": "young",
+    "preschooler": "young",
+    "tween": "young",
+    "teen": "young",
+    "teenager": "young",
+    "young adult": "young",
+    "adult": "middle-aged",
+    "middle aged": "middle-aged",
+    "elderly": "old",
+    "senior": "old",
+    "senior citizen": "old",
+    "elder": "old"
+  }
+}
