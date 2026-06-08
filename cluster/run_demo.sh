@@ -21,6 +21,7 @@ case "$TIER" in
   *) echo "usage: bash cluster/run_demo.sh <smoke|6k|full>"; exit 1 ;;
 esac
 PY=~/openbias/bin/python
+unset HF_HOME TRANSFORMERS_CACHE   # the dry-run's clustering step loads SBERT -> use the populated default HF cache
 
 echo ">> [1/3] reset + patch utils/config.py  (proposed file: $FILE)"
 git checkout utils/config.py 2>/dev/null || true

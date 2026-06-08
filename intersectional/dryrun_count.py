@@ -4,6 +4,10 @@ Used by cluster/run_demo.sh. Also exercises utils.post_processing (the code path
 ConceptNet), so if this returns quickly the real generation won't hang. CPU-only.
 """
 import sys
+import os
+
+# this file lives in intersectional/; add the repo root so `import utils...` resolves
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.argv = ["x", "--dataset", "coco", "--generator", "sd-xl"]
 import utils.arg_parse as ap  # noqa: E402
