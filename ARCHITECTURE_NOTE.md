@@ -82,7 +82,7 @@ graph TD
 
 ---
 
-## 4. Extension Strategy for Intersectional Bias (per `AGENT.md`)
+## 4. Extension Strategy for Intersectional Bias
 
 To build the intersectional bias extension without disrupting the existing codebase (following the **repo-first** and **non-destructive edits** principles):
 
@@ -124,8 +124,3 @@ python tools/inspect_proposed_biases.py proposed_biases/coco/3/coco_train.json
 # Do the upstream invariants still hold?
 pytest tests/test_upstream_schema.py -v
 ```
-
-### What lives outside the repo (intentionally)
-
-- `AGENT.md` — agent operating instructions, gitignored. Local guide only.
-- `../understanding/` — sibling folder for early-stage notes (e.g. an earlier draft of the intersectional schema). Not tracked by this repo.
