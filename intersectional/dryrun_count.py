@@ -1,7 +1,6 @@
-"""Dry-run gate: print how many images the CURRENT config would generate, without any GPU.
+"""Print how many images the current config would generate, without running generation. CPU-only.
 
-Used by cluster/run_demo.sh. Also exercises utils.post_processing (the code path that can hang on
-ConceptNet), so if this returns quickly the real generation won't hang. CPU-only.
+Used by run_demo.sh as a sanity check before the GPU work.
 """
 import sys
 import os

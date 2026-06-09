@@ -160,3 +160,45 @@ def test_baseline_marginals_excludes_unknown():
     out = bm.baseline_marginals(dc, "person", None)
     assert out["gender"]["total"] == 40                # unknown excluded
     assert out["gender"]["intensity"] > 0              # 30:10 is skewed
+
+
+# ----- prompt quality / caption leakage -----
+def test_prompt_quality_detects_attribute_in_caption():
+    sys.path.insert(0, os.path.join(ROOT, "intersectional"))
+    import prompt_quality as pq
+    assert pq.mentions("gender", "A man riding a bike") is True     # gender stated -> not neutral
+    assert pq.mentions("gender", "A person near a plane") is False  # neutral prompt
+    assert pq.mentions("race", "An asian tourist taking a photo") is True
+
+
+def test_pair_leakage_rate():
+    sys.path.insert(0, os.path.join(ROOT, "intersectional"))
+    import prompt_quality as pq
+    cmap = {"1": "A man in a kitchen", "2": "A person on a bench", "3": "A woman cooking"}
+    out = pq.pair_leakage(["1", "2", "3"], "gender", "race", cmap)
+    assert out["captions"] == 3
+    assert out["leak_a_rate"] == pytest.approx(2 / 3, abs=1e-3)  # man + woman = 2/3 leak gender
+    assert out["clean_captions"] == 1                            # only "A person on a bench"
+
+
+def test_context_aware_needs_multiple_images_per_caption():
+    one = {"1": [("m", "w")], "2": [("f", "b")]}            # n-images=1 -> degenerate
+    out1 = scoring.context_aware_metrics(one)
+    assert out1["degenerate_fraction"] == 1.0
+    assert out1["mean_joint_intensity"] is None
+    many = {"1": [("m", "w"), ("m", "b"), ("f", "w"), ("f", "b")],   # several images per caption
+            "2": [("m", "w"), ("m", "w"), ("f", "b"), ("f", "b")]}
+    out2 = scoring.context_aware_metrics(many)
+    assert out2["degenerate_fraction"] == 0.0
+    assert out2["mean_joint_intensity"] is not None
+    assert out2["mean_mutual_information"] is not None
+
+
+def test_exclude_leaky_drops_observations():
+    cmap = {"7": "A man riding"}     # gender stated in the prompt
+    vqa = {"p/7/0.jpg": {"person gender": ["person", "c", "male"],
+                         "person race": ["person", "c", "asian"]}}
+    kept = pairing.build_pairs(vqa, caption_map=cmap, exclude_leaky=False)
+    dropped = pairing.build_pairs(vqa, caption_map=cmap, exclude_leaky=True)
+    assert ("person", "gender", "race") in kept
+    assert ("person", "gender", "race") not in dropped   # leaky -> excluded

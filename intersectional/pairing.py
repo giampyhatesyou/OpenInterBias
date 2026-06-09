@@ -1,13 +1,12 @@
-"""Stage 5 — pairing: read ``vqa_answers.json`` -> per-pair joint observations.
+"""Pairing: read ``vqa_answers.json`` -> per-pair joint observations.
 
-Post-hoc, read-only, CPU-only. Mirrors ``make_plots.py`` class exclusions exactly so the
-joint analysis is comparable to the single-attribute baseline.
+Read-only, CPU-only. Mirrors ``make_plots.py`` class exclusions so the joint analysis is
+comparable to the single-attribute baseline.
 
-Deviation from STAGE5_PLAN D3 (justified): the realized baseline VQA file keys biases by
-free-text ``bias_name`` (4554 distinct on COCO, e.g. ``"driver age"``, ``"soccer player race"``).
-Pairing on raw ``bias_name`` yields ~2-caption support per pair (useless). We therefore
-canonicalize the attribute by its last token (age/gender/race/...) within a cluster, which
-recovers usable support. Pass ``attr_mode="raw"`` to recover the literal plan behaviour.
+The VQA file keys biases by free-text ``bias_name`` (4554 distinct on COCO, e.g. ``"driver age"``,
+``"soccer player race"``); pairing on the raw name yields ~2-caption support per pair. We therefore
+canonicalize the attribute by its last token (age/gender/race/...) within a cluster, which recovers
+usable support. Pass ``attr_mode="raw"`` to keep the raw name.
 """
 import json
 import os
@@ -22,7 +21,7 @@ def canonical_attr(bias_name, mode="last_token"):
     """Map a free-text ``bias_name`` to a canonical attribute name.
 
     ``last_token``: ``"driver age" -> "age"``, ``"person race" -> "race"``,
-    ``"pitcher's gender" -> "gender"``. ``raw``: identity (the literal STAGE5_PLAN D3).
+    ``"pitcher's gender" -> "gender"``. ``raw``: identity (no canonicalization).
     """
     if mode == "raw":
         return bias_name
@@ -81,28 +80,42 @@ def per_image_attributes(image_biases, attr_mode="last_token", cluster_filter=No
     return out
 
 
-def build_pairs(vqa_answers, attr_mode="last_token", cluster_filter=None, class_map=None):
+try:
+    import prompt_quality as _pq
+except ImportError:  # pragma: no cover
+    _pq = None
+
+
+def build_pairs(vqa_answers, attr_mode="last_token", cluster_filter=None, class_map=None,
+                caption_map=None, exclude_leaky=False):
     """Return ``joint[(cluster, a, b)] = {caption_id: [(pred_a, pred_b), ...]}``.
 
     ``a, b`` are the two attribute names sorted; pairs are within the same cluster
     (same ``refer_to``), so they are semantically intersectional (person gender x
     person race), not mere co-occurrence (person x kitchen). ``caption_id`` is the
     second-to-last path component of the image key (identical to make_plots.py:132).
+
+    If ``exclude_leaky`` and a ``caption_map`` is given, a joint observation is dropped when the
+    caption (the prompt) lexically states one of the two attributes (prompt-quality control). The
+    leakage rate is reported separately by run_analysis regardless.
     """
     joint = collections.defaultdict(lambda: collections.defaultdict(list))
     for image_key, image_biases in vqa_answers.items():
         caption_id = image_key.split("/")[-2]
+        cap = caption_map.get(caption_id, "") if caption_map else ""
         by_cluster = per_image_attributes(image_biases, attr_mode, cluster_filter, class_map)
         for cluster, attrs in by_cluster.items():
             for a, b in itertools.combinations(sorted(attrs), 2):
+                if exclude_leaky and caption_map and _pq and (_pq.mentions(a, cap) or _pq.mentions(b, cap)):
+                    continue
                 joint[(cluster, a, b)][caption_id].append((attrs[a], attrs[b]))
     return joint
 
 
 def pair_key(cluster, a, b):
     """Stable, unambiguous human-readable id. ``|`` separator avoids clashing with
-    class names containing ``x`` (STAGE5_PLAN D9); cluster prefix disambiguates the
-    same attribute pair across clusters (e.g. person vs child)."""
+    class names containing ``x``; the cluster prefix disambiguates the same
+    attribute pair across clusters (e.g. person vs child)."""
     return f"{cluster}:{a}|{b}"
 
 

@@ -1,55 +1,56 @@
-"""Safely patch utils/config.py for the Stage-5 demo scale-up (run ON baldo, from the repo root).
+"""Point utils/config.py at a demographic subset and separate output dirs (run from the repo root).
 
-Why: hand-editing the 5 values (one is an f-string with nested quotes) is error-prone. This makes
-each replacement exactly once and refuses if anything looks off. Fully reversible: undo with
-`git checkout utils/config.py`.
+Hand-editing the values (one is an f-string with nested quotes) is error-prone; this applies each
+replacement and refuses if anything looks off. Undo with `git checkout utils/config.py`.
 
-Usage:
-    python intersectional/apply_demo_config.py coco_train_demo_smoke.json   # smoke test (50 imgs)
-    git checkout utils/config.py                                            # then revert and...
-    python intersectional/apply_demo_config.py coco_train_demo6k.json       # ...the real 6k run
+    python intersectional/apply_demo_config.py coco_train_demo6k.json
+    python intersectional/apply_demo_config.py coco_train_ctxaware.json --n-images 10 --tag ctxaware
+    git checkout utils/config.py
 """
 import os
 import sys
+import argparse
 
 CONFIG = "utils/config.py"
-
-EDITS = [
-    ("'max_prompts_per_bias': 2,", "'max_prompts_per_bias': 1000,"),
-    ("'filter_threshold': 0.50,", "'filter_threshold': 0,"),
-    ("'proposed_biases_path': f'proposed_biases/coco/{BIAS_PROPOSAL_SETTING[\"coco\"]"
-     "[\"n_prompts_per_image\"]}/coco_train.json',",
-     "'proposed_biases_path': 'proposed_biases/coco/3/{FILE}',"),
-    ("'subfolder': 'coco/train',", "'subfolder': 'coco/train_demo',"),
-    ("'save_path': 'results/VQA'", "'save_path': 'results/VQA_demo'"),
-]
+PROP_OLD = ("'proposed_biases_path': f'proposed_biases/coco/{BIAS_PROPOSAL_SETTING[\"coco\"]"
+            "[\"n_prompts_per_image\"]}/coco_train.json',")
 
 
-def main(proposed_file):
+def main(proposed_file, n_images, tag):
     if not os.path.exists(CONFIG):
-        sys.exit(f"ERROR: {CONFIG} not found. Run this from the OpenInterBias repo root on baldo.")
+        sys.exit(f"ERROR: {CONFIG} not found. Run this from the repo root.")
     src = open(CONFIG).read()
-
-    # refuse to double-apply
-    if "'max_prompts_per_bias': 1000," in src or "results/VQA_demo" in src:
+    if f"results/VQA_{tag}" in src or "'max_prompts_per_bias': 1000," in src:
         sys.exit("ERROR: config already patched. `git checkout utils/config.py` first, then re-run.")
 
-    for old, new in EDITS:
-        new = new.replace("{FILE}", proposed_file)
+    # (old, new, expected_count); None = replace all occurrences (>=1)
+    edits = [
+        ("'max_prompts_per_bias': 2,", "'max_prompts_per_bias': 1000,", 1),
+        ("'filter_threshold': 0.50,", "'filter_threshold': 0,", 1),
+        (PROP_OLD, f"'proposed_biases_path': 'proposed_biases/coco/3/{proposed_file}',", 1),
+        ("'subfolder': 'coco/train',", f"'subfolder': 'coco/train_{tag}',", 1),
+        ("'save_path': 'results/VQA'", f"'save_path': 'results/VQA_{tag}'", 1),
+    ]
+    if n_images != 1:
+        # this literal is shared by several datasets; only coco is generated, so replacing all is safe
+        edits.append(("'n-images': 1,", f"'n-images': {n_images},", None))
+
+    for old, new, expected in edits:
         count = src.count(old)
-        if count != 1:
-            sys.exit(f"ERROR: expected exactly 1 occurrence, found {count}:\n   {old[:70]}...\n"
-                     f"Aborting; config.py untouched (manual check needed).")
+        if count == 0 or (expected is not None and count != expected):
+            sys.exit(f"ERROR: expected {expected or '>=1'} occurrence(s), found {count}: {old[:60]}...")
         src = src.replace(old, new)
 
     open(CONFIG, "w").write(src)
-    print(f"OK — patched {CONFIG} to use proposed_biases/coco/3/{proposed_file}")
-    print("Verify (should show ONLY utils/config.py, ~5 lines):")
+    print(f"OK -> proposed_biases/coco/3/{proposed_file} | output tag '{tag}' | n-images={n_images}")
     os.system("git diff --stat utils/config.py")
-    print("\nNext: run the dry-run gate, then sbatch the job. Revert with: git checkout utils/config.py")
+    print("Revert when done with: git checkout utils/config.py")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit("Usage: python intersectional/apply_demo_config.py <proposed_biases_filename.json>")
-    main(sys.argv[1])
+    p = argparse.ArgumentParser()
+    p.add_argument("proposed_file")
+    p.add_argument("--n-images", type=int, default=1, dest="n_images")
+    p.add_argument("--tag", default="demo")
+    o = p.parse_args()
+    main(o.proposed_file, o.n_images, o.tag)

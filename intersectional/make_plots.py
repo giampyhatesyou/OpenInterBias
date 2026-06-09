@@ -118,8 +118,8 @@ def main(dataset, generator, vqa_model, mode, min_support, cluster=None):
             rows.append((key, cf["support_images"], cf["mutual_information"],
                          cf["joint_intensity"], ci))
     if not rows:
-        print(f"No pair reaches min_support={min_support}; nothing to plot. "
-              f"This itself is the finding (see STAGE5_LOG §2) — scale up generation.")
+        print(f"No pair reaches min_support={min_support}; nothing to plot "
+              f"(the baseline is too sparse for pairs — scale up generation).")
         return
 
     rows.sort(key=lambda x: x[2])  # by NMI ascending (matches upstream sort direction)

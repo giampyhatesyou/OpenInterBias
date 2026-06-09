@@ -6,7 +6,7 @@ unit test (tests/intersectional) asserts equality with the upstream function.
 
 MI is the plug-in (maximum-likelihood) estimator, which is known to be **upward biased at
 small sample size** — exactly our regime (n = 6..48). That is why ``bootstrap_nmi`` reports a
-95% CI: on tiny pairs the CI is huge, which is the honest signal.
+95% CI: on tiny pairs the CI is wide, which flags the low support.
 """
 import math
 import numpy as np
@@ -181,22 +181,26 @@ def score_pair(obs, normalize="min", n_boot=1000, n_perm=1000, seed=0):
     }
 
 
-def context_aware_joint_intensity(caption_to_obs):
-    """Mean over captions of per-caption Joint Intensity, mirroring make_plots.py:148-180.
-    With n-images=1 every caption has a single obs -> per-caption joint is one point ->
-    intensity degenerate; we return the mean over the (few) captions that survive and a
-    ``degenerate_fraction`` so the caller can flag it."""
-    vals = []
+def context_aware_metrics(caption_to_obs, normalize="min"):
+    """Context-aware: a per-caption metric averaged over captions (mirrors make_plots.py:148-180).
+    Joint Intensity and NMI are computed within each caption, then averaged. This is meaningful
+    only with n-images > 1; with one image per caption each per-caption distribution is a single
+    point (intensity degenerate, MI = 0), hence the ``degenerate_fraction``."""
+    ji_vals, mi_vals = [], []
     degenerate = 0
     for _cid, obs in caption_to_obs.items():
         ji = joint_intensity(obs)
         if ji is None or math.isnan(ji) or math.isinf(ji):
             degenerate += 1
-            continue
-        vals.append(ji)
+        else:
+            ji_vals.append(ji)
+        mi = mutual_information(obs, normalize)
+        if mi is not None:
+            mi_vals.append(mi)
     n = len(caption_to_obs)
     return {
-        "mean_joint_intensity": round(float(np.mean(vals)), 5) if vals else None,
+        "mean_joint_intensity": round(float(np.mean(ji_vals)), 5) if ji_vals else None,
+        "mean_mutual_information": round(float(np.mean(mi_vals)), 5) if mi_vals else None,
         "support_captions": n,
         "degenerate_fraction": round(degenerate / n, 4) if n else None,
     }

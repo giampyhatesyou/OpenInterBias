@@ -6,7 +6,7 @@ attribute pairs, scores them, and writes (NEW, never edits upstream):
 - ``intersectional_results.json``   (metrics + support + bootstrap CI per pair)
 - ``intersectional_results.md``     (human-readable ranked summary)
 
-CPU-only, deterministic. Mirrors the upstream CLI surface so it chains in ``cluster/``.
+CPU-only, deterministic. Same CLI surface as the upstream stages.
 
     python intersectional/run_analysis.py --dataset coco --generator sd-xl \
         --vqa_model llava-1.5-13b --mode generated
@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pairing  # noqa: E402
 import scoring  # noqa: E402
 import baseline_marginals as bm  # noqa: E402
+import prompt_quality as pq  # noqa: E402
 
 DEFAULT_CLASS_MAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "class_map.json")
 
@@ -34,13 +35,18 @@ def results_dir(dataset, generator, vqa_model, mode):
 
 
 def run(dataset, generator, vqa_model, mode, attr_mode, cluster_filter,
-        normalize, min_support, n_boot, n_perm, seed, class_map_path=DEFAULT_CLASS_MAP):
+        normalize, min_support, n_boot, n_perm, seed, class_map_path=DEFAULT_CLASS_MAP,
+        proposed_biases_path=None, exclude_leaky=False):
     vqa_path, out_path = results_dir(dataset, generator, vqa_model, mode)
     vqa_answers = pairing.load_vqa_answers(os.path.join(vqa_path, "vqa_answers.json"))
     class_map = pairing.load_class_map(class_map_path)
 
-    joint = pairing.build_pairs(vqa_answers, attr_mode=attr_mode,
-                                cluster_filter=cluster_filter, class_map=class_map)
+    # prompt quality: the caption is the generation prompt. Map caption_id -> caption.
+    caption_map = pq.load_caption_map(proposed_biases_path) if proposed_biases_path else None
+
+    joint = pairing.build_pairs(vqa_answers, attr_mode=attr_mode, cluster_filter=cluster_filter,
+                                class_map=class_map, caption_map=caption_map,
+                                exclude_leaky=exclude_leaky)
     os.makedirs(out_path, exist_ok=True)
     pairing.write_joint_answers(joint, os.path.join(out_path, "joint_answers.json"))
 
@@ -57,7 +63,8 @@ def run(dataset, generator, vqa_model, mode, attr_mode, cluster_filter,
         pooled = [obs for lst in caps.values() for obs in lst]
         cf = scoring.score_pair(pooled, normalize=normalize, n_boot=n_boot,
                                 n_perm=n_perm, seed=seed)
-        ca = scoring.context_aware_joint_intensity(caps)
+        ca = scoring.context_aware_metrics(caps, normalize)
+        pqual = pq.pair_leakage(list(caps.keys()), a, b, caption_map) if caption_map else None
         results[pairing.pair_key(cluster, a, b)] = {
             "refer_to": cluster,
             "attr_a": a,
@@ -65,7 +72,8 @@ def run(dataset, generator, vqa_model, mode, attr_mode, cluster_filter,
             "support_captions": len(caps),
             "below_min_support": cf["support_images"] < min_support,
             "context_free": cf,
-            "context_aware": ca,  # NOTE: degenerate at n-images=1 (see STAGE5_LOG §2)
+            "context_aware": ca,  # degenerate at n-images=1 (single image per caption)
+            "prompt_quality": pqual,  # caption leakage of attr_a / attr_b
         }
 
     config = {
@@ -73,6 +81,7 @@ def run(dataset, generator, vqa_model, mode, attr_mode, cluster_filter,
         "attr_mode": attr_mode, "cluster_filter": cluster_filter, "mi_normalize": normalize,
         "min_support": min_support, "n_boot": n_boot, "n_perm": n_perm, "seed": seed,
         "class_map": class_map_path if class_map else None,
+        "proposed_biases": proposed_biases_path, "exclude_leaky": exclude_leaky,
         "n_pairs": len(results), "n_images_total": len(vqa_answers),
     }
     payload = {"_config": config, "baseline_marginals": marginals, "pairs": results}
@@ -88,11 +97,13 @@ def _ranked(payload):
     rows = []
     for key, r in payload["pairs"].items():
         cf = r["context_free"]
+        pqual = r.get("prompt_quality")
         rows.append({
             "key": key, "refer_to": r["refer_to"], "support": cf["support_images"],
             "nmi": cf["mutual_information"], "nmi_mm": cf.get("mutual_information_mm"),
             "ci": cf["nmi_ci95"], "pval": cf.get("nmi_pvalue"),
             "ji": cf["joint_intensity"], "low": r["below_min_support"],
+            "leak": pqual["leak_any_rate"] if pqual else None,
         })
     # rank by support so the trustworthy pairs are on top
     return sorted(rows, key=lambda x: x["support"], reverse=True)
@@ -120,15 +131,29 @@ def _write_markdown(payload, path):
              "**Read support first.** Pairs below `min_support` are flagged ⚠ — their NMI is",
              "dominated by small-sample bias. Trust `NMI_MM` (Miller-Madow, bias-corrected) and",
              "`p` (permutation test, H0=independence) over the raw plug-in `NMI`.\n",
-             "| pair | refer_to | support | NMI | NMI_MM | p | NMI 95% CI | Joint Int | |",
-             "|---|---|---:|---:|---:|---:|---|---:|---|"]
+             "| pair | refer_to | support | NMI | NMI_MM | p | NMI 95% CI | Joint Int | leak | |",
+             "|---|---|---:|---:|---:|---:|---|---:|---:|---|"]
     for d in _ranked(payload):
         flag = "⚠ low" if d["low"] else "ok"
         ci = d["ci"]
         ci_s = f"[{ci[0]}, {ci[1]}]" if ci else "—"
         g = lambda v: v if v is not None else "—"  # noqa: E731
+        leak = f"{d['leak']:.0%}" if d["leak"] is not None else "—"
         lines.append(f"| `{d['key']}` | {d['refer_to']} | {d['support']} | {g(d['nmi'])} "
-                     f"| {g(d['nmi_mm'])} | {g(d['pval'])} | {ci_s} | {g(d['ji'])} | {flag} |")
+                     f"| {g(d['nmi_mm'])} | {g(d['pval'])} | {ci_s} | {g(d['ji'])} | {leak} | {flag} |")
+
+    # context-aware (per-caption average) — only informative with n-images > 1
+    g = lambda v: v if v is not None else "—"  # noqa: E731
+    ca_rows = [d for d in _ranked(payload) if not d["low"]]
+    if ca_rows:
+        lines += ["", "### Context-aware (per-caption average; meaningful only with n-images>1)",
+                  "| pair | captions | CA Joint Intensity | CA NMI | degenerate frac |",
+                  "|---|---:|---:|---:|---:|"]
+        for d in ca_rows:
+            ca = payload["pairs"][d["key"]]["context_aware"]
+            lines.append(f"| `{d['key']}` | {ca['support_captions']} | {g(ca['mean_joint_intensity'])} "
+                         f"| {g(ca['mean_mutual_information'])} | {g(ca['degenerate_fraction'])} |")
+
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -169,8 +194,13 @@ if __name__ == "__main__":
     p.add_argument("--class_map", default=DEFAULT_CLASS_MAP,
                    help="class-normalization json (default: intersectional/class_map.json)")
     p.add_argument("--no_class_map", action="store_true", help="disable class normalization")
+    p.add_argument("--proposed_biases", default=None,
+                   help="path to the stage-1 proposals JSON (enables prompt-quality / leakage report)")
+    p.add_argument("--exclude_leaky", action="store_true",
+                   help="drop joint observations whose prompt lexically states one of the attributes")
     p.add_argument("--seed", type=int, default=0)
     o = p.parse_args()
     run(o.dataset, o.generator, o.vqa_model, o.mode, o.attr_mode, o.cluster,
         o.mi_normalize, o.min_support, o.n_boot, o.n_perm, o.seed,
-        class_map_path=(None if o.no_class_map else o.class_map))
+        class_map_path=(None if o.no_class_map else o.class_map),
+        proposed_biases_path=o.proposed_biases, exclude_leaky=o.exclude_leaky)

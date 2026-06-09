@@ -1,96 +1,86 @@
-# Intersectional bias in SDXL (COCO baseline) — Stage 5 report
+# Intersectional bias in SDXL on COCO
 
-**TL;DR.** We built the post-hoc intersectional analysis (Stage 5) on top of the existing
-OpenBias baseline and ran it on the 6384-image SDXL/COCO/LLaVA-13B run. The machinery works and is
-validated, but the **realized baseline is too sparse** to measure intersectional bias reliably: of
-59 person attribute-pairs, only **age×gender (n=48)** has enough support to report, and there the
-two attributes are **statistically independent** (NMI 0.069, Miller-Madow-corrected 0.034,
-permutation p=0.23). The captions needed to fix this already exist in the stage-1 proposals and just
-need to be generated — see `SCALEUP.md` (≈3 h of GPU lifts the key pairs from 6–48 to ~3–6k samples).
+We extend OpenBias from single-attribute bias to joint bias of attribute pairs. After scaling the
+generation to about 3000 person-demographic images, the picture is consistent: SDXL has strong
+single-attribute biases (most clearly on race) but the demographic attributes are largely separable,
+i.e. the intersectional coupling between them is small.
 
----
+## Method
 
-## 1. What was built
-A read-only, CPU-only, deterministic add-on (no upstream file changed):
-- `pairing.py` — reads `vqa_answers.json`; canonicalizes the 4554 free-text `bias_name`s to a
-  semantic attribute (last token: age/gender/race/…) within each `refer_to` cluster; forms
-  same-cluster attribute pairs and per-caption joint observations. An optional **class-normalization
-  map** (`class_map.json`: boy→male, white→caucasian, young-child→young, …) keeps messy LLaVA
-  classes from inflating the entropy.
-- `scoring.py` — **Joint Intensity** = 1 − normalized entropy of the joint (same estimator as the
-  baseline `make_plots.entropy`, parity-tested); **NMI** (plug-in) with a bootstrap 95% CI; the
-  **Miller-Madow** bias-corrected NMI; and a **permutation test** (H0 = independence) p-value. Also
-  reports each attribute's single-attribute marginal intensity for comparison.
-- `run_analysis.py` / `make_plots.py` — CLI + figures (ranked NMI with CIs, Joint Intensity, and a
-  joint-distribution heatmap). 14 unit tests (`tests/intersectional/`).
+The analysis is post-hoc and reads the cached VQA answers. For each pair of person attributes
+measured on the same image we build the joint distribution and compute Joint Intensity
+(1 - normalized joint entropy) and Normalized Mutual Information (NMI). NMI is reported with a
+Miller-Madow small-sample correction, a bootstrap confidence interval, and a permutation-test
+p-value. Free-text attribute names are canonicalized to age/gender/race; class labels are normalized
+(class_map.json). Exclusions of unknown/other/non-binary mirror the upstream make_plots, so the
+numbers are comparable to the single-attribute baseline.
 
-Exclusions (`unknown`/`other`/`non-binary`) mirror `make_plots.py` exactly, so intersectional
-numbers are directly comparable to the single-attribute baseline.
+## Scale-up
 
-## 2. What was found
-| person pair | support (imgs) | NMI | NMI (Miller-Madow) | perm. p | reportable? |
-|---|---:|---:|---:|---:|:--:|
-| age × gender | 48 | 0.069 | **0.034** | 0.23 | ✅ (weak/independent) |
-| age × attire | 26 | 0.629 | 0.567 | 0.70 | ❌ low support |
-| attire × gender | 17 | 0.518 | 0.428 | 0.97 | ❌ low support |
-| age × race | 10 | 0.225 | 0.199 | 0.67 | ❌ low support |
-| gender × race | 6 | 0.000 | 0.000 | 1.00 | ❌ low support |
-| (… 54 more, all support ≤ 26 …) | | | | | |
+The original baseline run was small (max_prompts_per_bias = 2, n-images = 1), so the demographic
+pairs had 6 to 48 joint observations - too few to measure dependence. We rendered the
+person-demographic captions that the bias-proposal stage already contained but had not generated,
+into separate output directories. This gave 3044 VQA-labelled images and raised the support:
 
-The high-NMI pairs are **artifacts of small samples**: their permutation p-values (0.7–1.0) and
-bootstrap CIs (spanning [0, 1]) say the apparent dependence is indistinguishable from chance. This
-is the central, honest result — and the reason we added Miller-Madow + permutation testing.
+| pair          | before | after |
+|---------------|-------:|------:|
+| gender x race | 6      | 391   |
+| age x race    | 10     | 684   |
+| age x gender  | 48     | 550   |
 
-**Full-data single-attribute marginals** (all person obs, for context): **race is the most skewed
-single attribute — bias intensity 0.49** (caucasian-dominated, but only 18 non-`unknown` obs),
-vs gender 0.12 and age 0.15. The cruel irony: race carries the strongest single-attribute bias yet
-its *intersections* (gender×race, n=6) are exactly the ones the pilot cannot measure.
+## Results
 
-**Robustness** (`sensitivity.md`): the verdict is invariant to MI normalization (min/geom/max) and
-to the class map; under raw `bias_name` pairing the max support over all pairs is **2**, confirming
-canonicalization is necessary, not cosmetic.
+Single-attribute marginals (where the bias actually concentrates):
 
-## 3. The one solid result, interpreted
-For **age × gender** (n=48), the joint distribution (`intersectional_heatmap_person.png`):
+| attribute | bias intensity | distribution                                            |
+|-----------|---------------:|---------------------------------------------------------|
+| race      | 0.53           | caucasian 572, african-american 166, asian 22, hispanic 7 |
+| age       | 0.23           | middle-aged 529, young 438, old 46                      |
+| gender    | 0.05           | male 615, female 356                                    |
 
-| | female | male |
-|---|---:|---:|
-| middle-aged | 5 | 20 |
-| old | 1 | 5 |
-| young | 8 | 9 |
+Intersectional pairs (Miller-Madow NMI, permutation p, prompt leakage, and the value after removing
+leaky prompts):
 
-SDXL skews strongly **male** (34 vs 14) — a marginal gender bias — but the male-lean is *similar
-across age bands*, so age and gender are **not coupled**: NMI_MM=0.034, p=0.23. In OpenBias terms,
-the marginal intensities (age 0.120, gender 0.129 on this subset) are not amplified at their
-intersection (joint 0.147 ≈ what independence predicts). **Strong-ish single-attribute biases, weak
-intersectional bias** — for this one measurable pair.
+| pair          | NMI_MM | p     | leakage | clean NMI_MM / p |
+|---------------|-------:|------:|--------:|------------------|
+| age x race    | 0.014  | 0.008 | 0%      | 0.014 / 0.013    |
+| gender x race | 0.009  | 0.17  | 12%     | 0.006 / 0.32     |
+| age x gender  | 0.002  | 0.17  | 10%     | 0.002 / 0.18     |
 
-## 4. Why the data is sparse (mechanism)
-Three compounding causes, none of them bugs:
-1. **Pilot-scale generation.** `utils/config.py` ran with `max_prompts_per_bias=2`, `n-images=1`
-   (the team's own `baseline.template.yaml` intends 100 / 10). So each bias produced ≤2 images.
-2. **`present_in_prompt` filter.** Generated-mode only measures biases *not* stated in the prompt;
-   for a caption like "A *man* …", gender is excluded → fewer gender observations.
-3. **VQA `unknown`s.** LLaVA frequently answers `unknown`/`other` for race; those are dropped
-   (for comparability), thinning race pairs the most (gender×race → 6).
+Every NMI is small (at most 0.014 on a 0-1 scale). The model's bias lives in the marginals (a strong
+caucasian skew, a milder male skew), not in the attribute combinations. Only age x race is
+statistically significant, and the effect size is negligible. Concretely, in that pair
+african-american faces skew slightly younger (young 80 vs middle-aged 55) while caucasian faces skew
+middle-aged (292 vs young 207); this weak tendency is the single measurable intersectional signal.
 
-The plan's "age×gender ≈ 50k support" figure came from the **proposal** universe (all 73k COCO
-captions), not the **realized** 6384 images.
+## Prompt quality
 
-## 5. Limitations & what to add next
-Full list in `STAGE5_LOG.md §2-3`. Headline limits: labels are LLaVA's *predictions* (not ground
-truth); discrete/loaded taxonomies with non-binary dropped; pairs-only, same-cluster, correlational.
-**The single highest-value next step is the GPU scale-up** in `SCALEUP.md`, which is reversible by
-construction and turns this from "infrastructure + a null result on one pair" into a
-properly-powered measurement of gender×race, age×race and age×gender.
+The generation prompt is the raw COCO caption. OpenBias is meant to measure only attributes the
+prompt does not state, but the present_in_prompt flag is unreliable: among the realized pairs, 12%
+of gender x race captions and 10% of age x gender captions lexically name an attribute
+("a man in a kitchen"). When the prompt fixes an attribute, its value is not a free choice of the
+model, so the joint correlation for that pair can be partly an artifact of the prompt. We measure the
+leakage per pair (prompt_quality.py) and recompute after dropping the leaky prompts:
 
-## 6. Reproduce
-```bash
-PYTHONHASHSEED=0 python3 intersectional/run_analysis.py \
-    --dataset coco --generator sd-xl --vqa_model llava-1.5-13b --mode generated --cluster person
-python3 intersectional/make_plots.py \
-    --dataset coco --generator sd-xl --vqa_model llava-1.5-13b --mode generated --cluster person --min_support 5
-PYTHONHASHSEED=0 python3 -m pytest tests/intersectional -q
-```
-Outputs: `results/intersectional/coco/generated/sd-xl/llava-1.5-13b/` (`intersectional_results.json`,
-`.md`, `joint_answers.json`, `intersectional_{nmi,joint_intensity,heatmap}_person.png`).
+- gender x race goes from NMI_MM 0.009 (p 0.17) to 0.006 (p 0.32), i.e. further toward independence.
+  Part of the small apparent coupling came from the prompts rather than the model.
+- age x race has 0% leakage, so the one significant result is not a prompt artifact.
+
+## Context-aware variant
+
+The results above are context-free (aggregated over all captions). The context-aware variant
+averages a per-caption metric and needs more than one image per caption; with the n-images = 1
+baseline it is degenerate. It is produced by a separate focused run (300 captions, 10 images each;
+`run_demo.sh ctx`) and written to `results/intersectional/coco_ctxaware`, where each pair gets a
+context-aware mean Joint Intensity and NMI.
+
+## Limitations
+
+- Labels are VQA predictions, not ground truth; the class taxonomies are discrete and non-binary is
+  dropped; the analysis is pairwise, same-`refer_to`, single generator and dataset, and correlational.
+
+## Reproduce
+
+See README.md. In short: `bash intersectional/run_demo.sh 6k` generates the demographic images, runs
+the VQA, and scores the pairs raw and prompt-filtered into results/intersectional/coco_demo and
+results/intersectional/coco_democlean.
