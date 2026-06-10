@@ -70,9 +70,19 @@ leakage per pair (prompt_quality.py) and recompute after dropping the leaky prom
 
 The results above are context-free (aggregated over all captions). The context-aware variant
 averages a per-caption metric and needs more than one image per caption; with the n-images = 1
-baseline it is degenerate. It is produced by a separate focused run (300 captions, 10 images each;
-`run_demo.sh ctx`) and written to `results/intersectional/coco_ctxaware`, where each pair gets a
-context-aware mean Joint Intensity and NMI.
+baseline it is degenerate. We ran 295 demographic captions at 10 images each (`run_demo.sh ctx`) and
+computed, per pair, the mean over captions of the per-caption Joint Intensity and NMI:
+
+| pair          | captions | CA Joint Intensity | CA NMI |
+|---------------|---------:|-------------------:|-------:|
+| age x race    | 235      | 0.26               | 0.13   |
+| age x gender  | 158      | 0.28               | 0.07   |
+| gender x race | 134      | 0.24               | 0.09   |
+
+Within a fixed prompt the joint distribution is moderately concentrated (Joint Intensity ~0.25), but
+the per-caption NMI (~0.07-0.13) sits at the small-sample bias level of MI computed on ~10 images per
+caption (on independent synthetic data the same estimator gives ~0.13). So the context-aware view is
+consistent with the context-free finding: the attributes are largely independent.
 
 ## Limitations
 

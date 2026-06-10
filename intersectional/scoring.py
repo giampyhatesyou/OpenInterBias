@@ -63,7 +63,7 @@ def _nmi_from_counts(N, normalize="min"):
         terms = np.where(P > 0, P * np.log(ratio), 0.0)
     mi = float(terms.sum())
     Ha, Hb = _entropy_nats(Pa.ravel()), _entropy_nats(Pb.ravel())
-    denom = {"min": min(Ha, Hb), "max": max(Ha, Hb), "geom": math.sqrt(Ha * Hb)}[normalize]
+    denom = {"min": min(Ha, Hb), "max": max(Ha, Hb), "geom": math.sqrt(max(Ha * Hb, 0.0))}[normalize]
     if denom <= 0:
         return 0.0
     return round(mi / denom, 5)
@@ -98,7 +98,7 @@ def mutual_information_mm(obs, normalize="min"):
     Hb = _entropy_mm_nats(N.sum(axis=0))
     Hab = _entropy_mm_nats(N.ravel())
     mi = max(Ha + Hb - Hab, 0.0)
-    denom = {"min": min(Ha, Hb), "max": max(Ha, Hb), "geom": math.sqrt(Ha * Hb)}[normalize]
+    denom = {"min": min(Ha, Hb), "max": max(Ha, Hb), "geom": math.sqrt(max(Ha * Hb, 0.0))}[normalize]
     if denom <= 0:
         return 0.0
     return round(min(mi / denom, 1.0), 5)

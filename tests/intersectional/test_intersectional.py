@@ -42,6 +42,16 @@ def test_perfect_dependence_has_unit_nmi():
     assert scoring.mutual_information(obs) == pytest.approx(1.0, abs=1e-6)
 
 
+def test_normalizations_do_not_crash_on_degenerate_marginals():
+    # geom normalization once did sqrt of a tiny negative (float error) on near-constant marginals
+    for norm in ("min", "max", "geom"):
+        assert scoring.mutual_information([("m", "w")] * 5, norm) is not None        # single cell
+        assert scoring.mutual_information([("m", "w"), ("m", "b")], norm) is not None  # constant A
+        assert scoring.mutual_information_mm([("m", "w")] * 5, norm) is not None
+    assert scoring.bootstrap_nmi([("m", "w")] * 8 + [("f", "b")] * 2,
+                                 n_boot=50, normalize="geom") is not None
+
+
 def test_constant_attribute_nmi_zero():
     obs = [("m", "w"), ("m", "b"), ("m", "w")]  # A constant -> MI undefined -> 0
     assert scoring.mutual_information(obs) == 0.0
