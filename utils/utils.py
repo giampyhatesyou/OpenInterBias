@@ -394,11 +394,15 @@ def merge_class_clusters(
                                 # remove merged cluster
                                 del bias_classes_merged[bias_cluster][bias][remaining_cluster]
                                 del bias_captions_merged[bias_cluster][bias][remaining_cluster]
-                                # remove old class cluster
-                                del class_clusters_merged[bias_cluster][bias][current_class_string]
-                                del class_clusters_merged[bias_cluster][bias][main_classes_string]
-                                del class_clusters_string_merged[bias_cluster][bias][class_cluster]
-                                del class_clusters_string_merged[bias_cluster][bias][remaining_cluster]
+                                # remove old class cluster strings. After several merges of the
+                                # same bias these keys can already be gone (the current/main
+                                # string was rewritten on a previous iteration); which iteration
+                                # hits this depends on set() ordering, i.e. on PYTHONHASHSEED ->
+                                # the intermittent KeyError. pop keeps the surviving-key behavior.
+                                class_clusters_merged[bias_cluster][bias].pop(current_class_string, None)
+                                class_clusters_merged[bias_cluster][bias].pop(main_classes_string, None)
+                                class_clusters_string_merged[bias_cluster][bias].pop(class_cluster, None)
+                                class_clusters_string_merged[bias_cluster][bias].pop(remaining_cluster, None)
                                 # add new class clusters
                                 new_classes_string = JOIN_TOKEN.join(bias_classes_merged[bias_cluster][bias][class_cluster]['classes'])
                                 class_clusters_string_merged[bias_cluster][bias][class_cluster] = new_classes_string

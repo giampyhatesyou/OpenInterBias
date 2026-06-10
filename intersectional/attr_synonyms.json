@@ -1,0 +1,20 @@
+{
+  "_comment": "Reviewed attribute-synonym merges for the open-set all-pairs scan, applied AFTER last-token canonicalization. Built by reviewing the frequency table of the 2020 last-token attributes in the full COCO proposals (73399 captions); only clear synonyms with the same question semantics are merged - near-misses (expression vs emotion, location vs setting, dress/uniform vs attire) are deliberately left split. A documented default, not a fixed truth.",
+  "ethnicity": "race",
+  "clothing": "attire",
+  "clothes": "attire",
+  "outfit": "attire",
+  "apparel": "attire",
+  "accessories": "accessory",
+  "toppings": "topping",
+  "features": "feature",
+  "profession": "occupation",
+  "job": "occupation",
+  "mood": "emotion",
+  "action": "activity",
+  "pose": "posture",
+  "stance": "posture",
+  "hairstyle": "hair",
+  "environment": "setting",
+  "scene": "setting"
+}

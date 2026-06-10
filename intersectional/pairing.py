@@ -17,19 +17,33 @@ import collections
 EXCLUDED_CLASSES = {"unknown", "other", "non-binary"}
 
 
-def canonical_attr(bias_name, mode="last_token"):
+def canonical_attr(bias_name, mode="last_token", attr_map=None):
     """Map a free-text ``bias_name`` to a canonical attribute name.
 
     ``last_token``: ``"driver age" -> "age"``, ``"person race" -> "race"``,
     ``"pitcher's gender" -> "gender"``. ``raw``: identity (no canonicalization).
+    ``attr_map`` (attr_synonyms.json) optionally merges reviewed synonyms AFTER the
+    last token (``"clothing" -> "attire"``), so the open-set tail is less fragmented.
     """
     if mode == "raw":
         return bias_name
-    return bias_name.strip().split()[-1].lower()
+    last = bias_name.strip().split()[-1].lower()
+    return attr_map.get(last, last) if attr_map else last
 
 
 # class normalization sentinel: a class mapped to this is treated like an excluded class
 DROP = "__drop__"
+
+
+def load_attr_map(path):
+    """Load the optional attribute-synonym map (flat ``{last_token: canonical}``).
+    ``None``/missing path -> ``None`` (no merging)."""
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "r") as f:
+        m = json.load(f)
+    m.pop("_comment", None)
+    return m
 
 
 def load_class_map(path):
@@ -57,7 +71,8 @@ def load_vqa_answers(path):
         return json.load(f)
 
 
-def per_image_attributes(image_biases, attr_mode="last_token", cluster_filter=None, class_map=None):
+def per_image_attributes(image_biases, attr_mode="last_token", cluster_filter=None, class_map=None,
+                         attr_map=None):
     """Return ``{cluster: {attr: pred}}`` for a single image, after class exclusion + optional
     class normalization.
 
@@ -71,11 +86,12 @@ def per_image_attributes(image_biases, attr_mode="last_token", cluster_filter=No
         cluster, _class_cluster, pred = val[0], val[1], val[-1]
         if cluster_filter is not None and cluster != cluster_filter:
             continue
-        last = bias_name.strip().split()[-1].lower()
-        pred = normalize_class(last, pred, class_map)
+        attr = canonical_attr(bias_name, "last_token", attr_map)
+        pred = normalize_class(attr, pred, class_map)
         if pred is None:
             continue
-        attr = canonical_attr(bias_name, attr_mode)
+        if attr_mode == "raw":
+            attr = bias_name
         out[cluster].setdefault(attr, pred)
     return out
 
@@ -87,7 +103,7 @@ except ImportError:  # pragma: no cover
 
 
 def build_pairs(vqa_answers, attr_mode="last_token", cluster_filter=None, class_map=None,
-                caption_map=None, exclude_leaky=False):
+                caption_map=None, exclude_leaky=False, leak_index=None, attr_map=None):
     """Return ``joint[(cluster, a, b)] = {caption_id: [(pred_a, pred_b), ...]}``.
 
     ``a, b`` are the two attribute names sorted; pairs are within the same cluster
@@ -95,19 +111,28 @@ def build_pairs(vqa_answers, attr_mode="last_token", cluster_filter=None, class_
     person race), not mere co-occurrence (person x kitchen). ``caption_id`` is the
     second-to-last path component of the image key (identical to make_plots.py:132).
 
-    If ``exclude_leaky`` and a ``caption_map`` is given, a joint observation is dropped when the
-    caption (the prompt) lexically states one of the two attributes (prompt-quality control). The
-    leakage rate is reported separately by run_analysis regardless.
+    If ``exclude_leaky``, a joint observation is dropped when the caption (the prompt)
+    lexically states one of the two attributes (prompt-quality control). With a
+    ``leak_index`` (prompt_quality.build_leak_index) the check covers every open-set
+    attribute via the proposed class labels; with only a ``caption_map`` it falls back to
+    the demographic ATTR_WORDS lists. The leakage rate is reported separately by
+    run_analysis regardless.
     """
     joint = collections.defaultdict(lambda: collections.defaultdict(list))
     for image_key, image_biases in vqa_answers.items():
         caption_id = image_key.split("/")[-2]
         cap = caption_map.get(caption_id, "") if caption_map else ""
-        by_cluster = per_image_attributes(image_biases, attr_mode, cluster_filter, class_map)
+        by_cluster = per_image_attributes(image_biases, attr_mode, cluster_filter, class_map,
+                                          attr_map)
         for cluster, attrs in by_cluster.items():
             for a, b in itertools.combinations(sorted(attrs), 2):
-                if exclude_leaky and caption_map and _pq and (_pq.mentions(a, cap) or _pq.mentions(b, cap)):
-                    continue
+                if exclude_leaky and _pq:
+                    if leak_index is not None:
+                        if (_pq.leaks(a, caption_id, leak_index, attr_map)
+                                or _pq.leaks(b, caption_id, leak_index, attr_map)):
+                            continue
+                    elif caption_map and (_pq.mentions(a, cap) or _pq.mentions(b, cap)):
+                        continue
                 joint[(cluster, a, b)][caption_id].append((attrs[a], attrs[b]))
     return joint
 

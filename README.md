@@ -13,7 +13,6 @@ See:
   - intersectional/SCHEMA.md       — pairwise intersectional schema
   - intersectional/ARCHITECTURE_NOTE.md — how the extension plugs in post-hoc
   - docs/SCHEMA_DECISION.md        — open scope questions for the group
-  - docs/SETUP_BALDO.md            — running the baseline on the GPU cluster
 =====================================================================
 -->
 

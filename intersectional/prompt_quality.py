@@ -33,6 +33,47 @@ def mentions(attr, caption):
     return bool(r and caption and r.search(caption))
 
 
+def build_leak_index(proposed_biases_path, attr_map=None):
+    """Open-set leakage: ``{caption_id: {attr: leaked}}`` for EVERY proposed attribute.
+
+    ATTR_WORDS only covers the three demographic attributes; for the all-pairs scan we need a
+    check that scales to arbitrary free-text attributes. The proposal entry already carries the
+    candidate ``classes`` for each bias, so the generic test is: does the caption lexically
+    mention one of the proposed class labels for that attribute ("a man WALKING down the
+    street" leaks activity when its classes include "walking")? For the demographic attributes
+    the ATTR_WORDS synonym lists are OR-ed in (class labels alone would miss "lady", "grandpa").
+    Same word-boundary heuristic as ``mentions``; still lexical, still to be eyeballed.
+    """
+    with open(proposed_biases_path) as f:
+        data = json.load(f)
+    index = {}
+    for e in data["bias_proposal"]:
+        caption = (e.get("caption") or "").lower()
+        attrs = {}
+        for bias in e.get("proposed_biases", {}).get("bias", []):
+            if not isinstance(bias.get("name"), str) or not isinstance(bias.get("classes"), list):
+                continue  # a handful of malformed LLM proposals in the full COCO file
+            attr = bias["name"].strip().split()[-1].lower()
+            attr = (attr_map or {}).get(attr, attr)
+            leaked = attrs.get(attr, False) or mentions(attr, caption)
+            if not leaked:
+                for cls in bias.get("classes", []):
+                    if re.search(r"\b" + re.escape(str(cls).lower()) + r"\b", caption):
+                        leaked = True
+                        break
+            attrs[attr] = leaked
+        index[str(e["caption_id"])] = attrs
+    return index
+
+
+def leaks(attr, caption_id, leak_index, attr_map=None):
+    """Leak lookup for a (possibly raw) attribute name; keys are last-token canonical
+    (with the same synonym merging the index was built with)."""
+    key = attr.strip().split()[-1].lower()
+    key = (attr_map or {}).get(key, key)
+    return bool(leak_index.get(str(caption_id), {}).get(key, False))
+
+
 def load_caption_map(proposed_biases_path):
     """caption_id (str) -> caption text, from a proposed_biases JSON."""
     with open(proposed_biases_path) as f:
@@ -40,19 +81,25 @@ def load_caption_map(proposed_biases_path):
     return {str(e["caption_id"]): e.get("caption", "") for e in data["bias_proposal"]}
 
 
-def pair_leakage(caption_ids, attr_a, attr_b, caption_map):
+def pair_leakage(caption_ids, attr_a, attr_b, caption_map, leak_index=None):
     """Per-pair prompt-quality: fraction of captions that state attr_a and/or attr_b.
 
     A high value means the joint result for this pair is partly dictated by the prompts, not the
-    model -> treat the pair's NMI with caution / exclude leaky captions."""
+    model -> treat the pair's NMI with caution / exclude leaky captions. With ``leak_index``
+    the check covers all open-set attributes (class-label based); otherwise it falls back to
+    the demographic ATTR_WORDS lists on ``caption_map``."""
     n = len(caption_ids)
-    if n == 0 or not caption_map:
+    if n == 0 or (not caption_map and leak_index is None):
         return None
     leak_a = leak_b = leak_any = 0
     for cid in caption_ids:
-        cap = caption_map.get(str(cid), "")
-        a = mentions(attr_a, cap)
-        b = mentions(attr_b, cap)
+        if leak_index is not None:
+            a = leaks(attr_a, cid, leak_index)
+            b = leaks(attr_b, cid, leak_index)
+        else:
+            cap = caption_map.get(str(cid), "")
+            a = mentions(attr_a, cap)
+            b = mentions(attr_b, cap)
         leak_a += a
         leak_b += b
         leak_any += (a or b)

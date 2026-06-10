@@ -212,3 +212,158 @@ def test_exclude_leaky_drops_observations():
     dropped = pairing.build_pairs(vqa, caption_map=cmap, exclude_leaky=True)
     assert ("person", "gender", "race") in kept
     assert ("person", "gender", "race") not in dropped   # leaky -> excluded
+
+
+# ----- FDR / all-pairs scan (open-set) -----
+def test_fast_permutation_matches_scoring_for_same_seed():
+    import fdr
+    rng = np.random.default_rng(3)
+    obs = [(f"a{rng.integers(0, 3)}", f"b{rng.integers(0, 4)}") for _ in range(60)]
+    slow = scoring.permutation_test_nmi(obs, n_perm=200, seed=7)
+    fast = fdr.perm_pvalue_fast(obs, n_perm=200, seed=7)
+    assert fast == pytest.approx(slow, abs=1e-5)  # same draws; they round at 5 vs 6 decimals
+
+
+def test_benjamini_hochberg_textbook():
+    import fdr
+    # classic BH example: m=4 sorted p = .01 .02 .03 .04 -> q = .04 for all
+    q = fdr.benjamini_hochberg({"a": 0.01, "b": 0.02, "c": 0.03, "d": 0.04})
+    assert all(v == pytest.approx(0.04) for v in q.values())
+    # a clear discovery next to clear nulls stays a discovery; nulls do not
+    q = fdr.benjamini_hochberg({"hit": 0.0001, "n1": 0.5, "n2": 0.8, "n3": 0.9})
+    assert q["hit"] == pytest.approx(0.0004) and q["n1"] > 0.05
+
+
+def test_benjamini_hochberg_q_at_least_p_and_monotone():
+    import fdr
+    pvals = {f"k{i}": p for i, p in enumerate([0.001, 0.01, 0.04, 0.2, 0.6, 1.0])}
+    q = fdr.benjamini_hochberg(pvals)
+    ordered = sorted(pvals, key=lambda k: pvals[k])
+    qs = [q[k] for k in ordered]
+    assert all(q[k] >= pvals[k] for k in pvals)          # adjusted >= raw
+    assert all(x <= y + 1e-12 for x, y in zip(qs, qs[1:]))  # monotone in p
+
+
+def test_two_stage_refines_only_candidates():
+    import fdr
+    rng = np.random.default_rng(0)
+    dep = [(f"c{i % 2}", f"d{i % 2}") for i in range(80)]            # perfectly coupled
+    ind = [(f"c{rng.integers(0, 2)}", f"d{rng.integers(0, 2)}") for _ in range(80)]
+    joint_obs = {"dep": dep, "ind": ind}
+    screened = {"dep": scoring.permutation_test_nmi(dep, n_perm=99, seed=0),
+                "ind": scoring.permutation_test_nmi(ind, n_perm=99, seed=0)}
+    qvals, refined = fdr.two_stage_fdr(joint_obs, screened, q=0.05, n_perm_refine=999)
+    assert refined["dep"] <= 1 / 999                # refined far below screening floor 1/100
+    assert refined["ind"] == screened["ind"]        # null candidate untouched
+    assert qvals["dep"] <= 0.05 and qvals["ind"] > 0.05
+
+
+# ----- open-set leakage (class-label based) -----
+def _fake_proposals(tmp_path):
+    data = {"bias_proposal": [
+        {"caption_id": 0, "caption": "a man walking down the street",
+         "proposed_biases": {"bias": [
+             {"name": "person gender", "refer_to": "person", "classes": ["male", "female"]},
+             {"name": "person activity", "refer_to": "person",
+              "classes": ["walking", "running", "sitting"]},
+             {"name": "person age", "refer_to": "person", "classes": ["young", "old"]}]}},
+        {"caption_id": 1, "caption": "a chef plating food in a kitchen",
+         "proposed_biases": {"bias": [
+             {"name": "chef gender", "refer_to": "chef", "classes": ["male", "female"]},
+             {"name": "chef skill level", "refer_to": "chef",
+              "classes": ["novice", "professional"]}]}},
+    ]}
+    p = tmp_path / "proposals.json"
+    p.write_text(json.dumps(data))
+    return str(p)
+
+
+def test_leak_index_flags_class_word_and_attr_words(tmp_path):
+    import prompt_quality as pq
+    idx = pq.build_leak_index(_fake_proposals(tmp_path))
+    assert idx["0"]["gender"] is True        # "man" via ATTR_WORDS
+    assert idx["0"]["activity"] is True      # "walking" via proposed class label
+    assert idx["0"]["age"] is False          # nothing states age
+    assert idx["1"]["gender"] is False       # "chef" is not gendered lexically
+    assert idx["1"]["level"] is False        # multiword attr keyed by last token
+    assert pq.leaks("driver activity", 0, idx) is True   # raw-name lookup via last token
+
+
+def test_pair_leakage_uses_open_set_index(tmp_path):
+    import prompt_quality as pq
+    idx = pq.build_leak_index(_fake_proposals(tmp_path))
+    r = pq.pair_leakage(["0", "1"], "activity", "level", caption_map=None, leak_index=idx)
+    assert r["leak_a_rate"] == 0.5 and r["leak_b_rate"] == 0.0
+    # legacy fallback would be blind to activity (not in ATTR_WORDS)
+    cap_map = {"0": "a man walking down the street", "1": "a chef plating food"}
+    legacy = pq.pair_leakage(["0", "1"], "activity", "level", caption_map=cap_map)
+    assert legacy["leak_a_rate"] == 0.0
+
+
+def test_build_pairs_excludes_open_set_leaky_obs(tmp_path):
+    import prompt_quality as pq
+    idx = pq.build_leak_index(_fake_proposals(tmp_path))
+    vqa = {"x/0/0.jpg": {"person activity": ["person", "c", "running"],
+                         "person age": ["person", "c", "young"]}}
+    raw = pairing.build_pairs(vqa)
+    assert ("person", "activity", "age") in raw
+    clean = pairing.build_pairs(vqa, exclude_leaky=True, leak_index=idx)
+    assert ("person", "activity", "age") not in clean   # caption states the activity
+
+
+# ----- attribute-synonym merging -----
+def test_attr_map_merges_synonyms_and_default_file_loads():
+    amap = pairing.load_attr_map(os.path.join(ROOT, "intersectional", "attr_synonyms.json"))
+    assert amap and "_comment" not in amap
+    assert pairing.canonical_attr("person clothing", attr_map=amap) == "attire"
+    assert pairing.canonical_attr("person ethnicity", attr_map=amap) == "race"
+    assert pairing.canonical_attr("person gender", attr_map=amap) == "gender"  # untouched
+    assert pairing.load_attr_map(None) is None
+
+
+def test_attr_map_pools_support_in_build_pairs():
+    amap = {"clothing": "attire"}
+    vqa = {"x/0/0.jpg": {"person attire": ["person", "c", "suit"],
+                         "person age": ["person", "c", "young"]},
+           "x/1/0.jpg": {"person clothing": ["person", "c", "dress"],
+                         "person age": ["person", "c", "old"]}}
+    merged = pairing.build_pairs(vqa, attr_map=amap)
+    assert len(merged[("person", "age", "attire")]) == 2   # both captions pooled
+    split = pairing.build_pairs(vqa)
+    assert len(split[("person", "age", "attire")]) == 1    # without the map they fragment
+    assert len(split[("person", "age", "clothing")]) == 1
+
+
+# ----- open-set generation planner -----
+def test_caption_pairs_canonicalizes_and_skips_malformed():
+    import openset_select as osl
+    entry = {"proposed_biases": {"bias": [
+        {"name": "person gender", "refer_to": "person", "classes": ["m", "f"]},
+        {"name": "person clothing", "refer_to": "person", "classes": ["suit", "dress"]},
+        {"name": "broken", "refer_to": None, "classes": ["x"]},          # malformed
+        {"name": "dog breed", "refer_to": "dog", "classes": ["lab", "pug"]}]}}
+    pairs = osl.caption_pairs(entry, {"clothing": "attire"})
+    assert pairs == {("person", "attire", "gender")}   # dog has 1 attr -> no pair; broken skipped
+
+
+def test_greedy_reuses_generated_for_free_and_tops_up():
+    import openset_select as osl
+    target = {("person", "a", "b")}
+    rate = {("person", "a", "b"): 0.5}
+    caps = {str(i): (i, {("person", "a", "b")}) for i in range(10)}
+    reused, new, expected = osl.greedy_select(caps, target, target_obs=3.0, rate=rate,
+                                              gen_ids={"0", "1"}, budget=100)
+    assert reused == ["0", "1"]
+    assert len(new) == 4                       # 2 free * 0.5 + 4 new * 0.5 = 3.0 -> stop
+    assert expected[("person", "a", "b")] == pytest.approx(3.0)
+
+
+def test_greedy_respects_budget_and_image_dedup():
+    import openset_select as osl
+    target = {("person", "a", "b")}
+    rate = {("person", "a", "b"): 1.0}
+    caps = {"1": (7, {("person", "a", "b")}),   # same source image as "2"
+            "2": (7, {("person", "a", "b")}),
+            "3": (8, {("person", "a", "b")})}
+    _, new, _ = osl.greedy_select(caps, target, 10.0, rate, gen_ids=set(), budget=5)
+    assert len(new) == 2                        # one caption per image_id

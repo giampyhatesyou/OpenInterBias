@@ -73,4 +73,8 @@ the report) and `--exclude_leaky` drops those observations.
 - `make_plots.py` - figures
 - `sensitivity.py` - robustness across normalization / canonicalization choices
 - `run_demo.sh`, `apply_demo_config.py`, `dryrun_count.py` - the focused regeneration
-- `REPORT.md`, `SCHEMA.md`, `ARCHITECTURE_NOTE.md` - results and design notes
+- `fdr.py` - Benjamini-Hochberg FDR + two-stage permutation refinement for the all-pairs scan
+- `attr_synonyms.json` - reviewed attribute-synonym merges (open-set canonicalization)
+- `openset_select.py`, `dryrun_pairs.py`, `link_reused_images.py`, `run_openset.sh`,
+  `ob_gen_openset.sbatch` - the open-set scale-up (see `OPENSET.md`)
+- `REPORT.md`, `SCHEMA.md`, `ARCHITECTURE_NOTE.md`, `OPENSET.md` - results and design notes
