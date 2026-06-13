@@ -162,13 +162,14 @@ sd_generated_dataset/
 openbias/
 weights/
 .vscode/
-AGENT.md
 
 # === Fork-specific additions ===
-# Run artifacts (per AGENT.md naming convention runs/YYYY-MM-DD_*)
+# Run artifacts (runs/YYYY-MM-DD_* naming convention)
 runs/*
 !runs/README.md
 !runs/.gitkeep
+# Backups
+*.bak*
 # Editor / OS
 .DS_Store
 .idea/

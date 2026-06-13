@@ -1,22 +1,8 @@
-<!--
-=====================================================================
-OpenInterBias fork — Intersectional extension of OpenBias (work in progress)
-=====================================================================
-
-This repository is a fork of Picsart-AI-Research/OpenBias maintained for
-academic work on **intersectional bias detection** in text-to-image
-generative models. The upstream README is preserved verbatim below; the
-extension lives alongside, not on top of, the original pipeline.
-
-See:
-  - ARCHITECTURE_NOTE.md           — high-level mapping + extension strategy
-  - intersectional/SCHEMA.md       — pairwise intersectional schema
-  - intersectional/ARCHITECTURE_NOTE.md — how the extension plugs in post-hoc
-  - docs/SCHEMA_DECISION.md        — open scope questions for the group
-=====================================================================
--->
-
-> **Fork: OpenInterBias** — extension of OpenBias toward **intersectional (joint-attribute) bias detection**. The upstream OpenBias pipeline is preserved unchanged; the intersectional analysis is being added as a non-destructive, post-hoc stage that consumes the cached VQA outputs. See [`ARCHITECTURE_NOTE.md`](ARCHITECTURE_NOTE.md) (§4 *Extension Strategy*, §5 *Repo Layout*) for the full picture.
+> **Fork: OpenInterBias** — extension of OpenBias to **intersectional (joint-attribute) bias
+> detection**. The upstream pipeline is preserved; the analysis runs as a post-hoc stage
+> (`intersectional/`). Changes to upstream files are delimited in-source by
+> `# CHANGED (fork) - START/END` blocks. **Results: [RESULTS.md](RESULTS.md). Reproduction:
+> [REPRODUCE.md](REPRODUCE.md).** The upstream README follows verbatim.
 
 <div align="center">
 
@@ -67,7 +53,7 @@ nano .env
 source .env
 ```
 
-See [SETUP.md](SETUP.md) for detailed instructions on configuring paths for different machines/clusters.
+See [REPRODUCE.md](REPRODUCE.md) for the full environment setup.
 
 ## OpenBias Pipeline
 OpenBias is composed of three main steps:
@@ -79,7 +65,7 @@ Please note that captions are required for running this pipeline.
 We provide support for `COCO`, `Flickr30k` and `winobias` datasets.  
 All the scripts of this pipeline `support multi GPUs`.
 
-**Configuration:** Make sure to configure `OPENBIAS_LLAMA_PATH` and dataset paths in `.env` before running any pipeline step. See [SETUP.md](SETUP.md) for details.
+**Configuration:** Make sure to configure `OPENBIAS_LLAMA_PATH` and dataset paths in `.env` before running any pipeline step (see [REPRODUCE.md](REPRODUCE.md)).
 
 ### Bias Proposal
 

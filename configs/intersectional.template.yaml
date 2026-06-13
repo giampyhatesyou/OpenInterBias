@@ -9,7 +9,7 @@
 #       results/VQA/<dataset>/<mode>/<generator>/<vqa_model>/vqa_answers.json
 #       proposed_biases/<dataset>/<n>/<dataset>_*.json
 #
-# Schema reference: intersectional/SCHEMA.md
+# Metric definitions: see RESULTS.md
 # Open scope questions: docs/SCHEMA_DECISION.md
 # =============================================================================
 
@@ -49,7 +49,7 @@ pairing:
     - "non-binary"
 
 # -----------------------------------------------------------------------------
-# Scoring (see intersectional/SCHEMA.md)
+# Scoring
 # -----------------------------------------------------------------------------
 scoring:
   metrics:
@@ -76,7 +76,7 @@ output:
     - "joint_heatmap_top5.png"               # heatmap per top-5 pairs
 
 # -----------------------------------------------------------------------------
-# Budget — CPU only, declared up-front per AGENT.md compute policy
+# Budget — CPU only, declared up-front per team compute policy
 # -----------------------------------------------------------------------------
 budget:
   gpus: 0

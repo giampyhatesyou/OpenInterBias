@@ -74,7 +74,7 @@ plotting:
     - "results/VQA/coco/generated/sd-xl/llava-1.5-13b/context_free.png"
 
 # -----------------------------------------------------------------------------
-# Budget (declared BEFORE launching — AGENT.md compute policy)
+# Budget (declared BEFORE launching — team compute policy)
 # -----------------------------------------------------------------------------
 budget:
   gpus: 1                        # number of GPUs requested on baldo

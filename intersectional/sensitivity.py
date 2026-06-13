@@ -2,7 +2,7 @@
 
 Re-runs the demographic pairs under combinations of methodological choices and tabulates the
 result, so the headline numbers come with a robustness statement:
-  - MI normalization: min / geom / max  (SCHEMA.md uses min)
+  - MI normalization: min / geom / max  (the analysis default is min)
   - class normalization: on (default map) / off
 It also reports the support collapse under raw ``bias_name`` pairing, which is *why* we
 canonicalize. CPU-only; reads the same ``vqa_answers.json``.
