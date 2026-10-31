@@ -11,7 +11,7 @@ Checks (in order, fail-fast):
 
 Each step prints PASS or FAIL with a short hint. Exit code = number of failures.
 
-Usage on baldo (from repo root):
+Usage on the GPU machine (from repo root):
     source .env                # load OPENBIAS_* env vars
     source ~/openbias/bin/activate
     python tools/smoke_baseline.py --dataset coco

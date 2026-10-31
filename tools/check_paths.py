@@ -4,7 +4,7 @@ This script does NOT import the heavy upstream modules (no torch, no diffusers).
 It reads utils/config.py as text and extracts any string literal that looks like
 a filesystem path, then checks existence.
 
-Use BEFORE launching expensive jobs on baldo — catches stale paths in seconds.
+Use BEFORE launching expensive GPU jobs — catches stale paths in seconds.
 
 Exit codes:
   0  — all referenced paths exist

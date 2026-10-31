@@ -188,5 +188,6 @@ config.local.py
 # Python build noise not covered above
 *.pyc
 # Cluster job artifacts
+logs/
 slurm-*.out
 *.sbatch.log

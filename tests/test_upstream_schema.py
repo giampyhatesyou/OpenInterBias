@@ -54,6 +54,6 @@ def test_intersectional_pairing_assumption(proposed_biases_coco_data: dict) -> N
             found_pairable_caption = True
             break
     assert found_pairable_caption, (
-        "No caption in the toy file has ≥2 biases with the same refer_to. "
+        "No caption in the proposals file has ≥2 biases with the same refer_to. "
         "Pairwise intersectional analysis would be empty on this data."
     )

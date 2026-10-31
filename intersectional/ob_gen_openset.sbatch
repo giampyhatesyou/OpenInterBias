@@ -10,6 +10,9 @@
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --output=%x_%j.out
 
+# Example profile from the cluster we used: adjust the #SBATCH account/qos/partition above and
+# the repo/venv paths below to your machine.
+#
 # Open-set all-pairs run, resumable across 8h sessions. Just resubmit the same file until done:
 #  - generation auto-resumes (populated caption folders are skipped), so a wall-clock kill
 #    during generation loses nothing;
