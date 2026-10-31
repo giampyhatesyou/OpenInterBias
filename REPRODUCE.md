@@ -120,6 +120,54 @@ all person pairs ≈ 0 (see RESULTS.md).
 python intersectional/make_openset_plots.py   # 6 PNGs in results/intersectional/figures/
 ```
 
+## CPU only: from the released results
+
+No GPU is needed from here on. Download `openinterbias-v1.0.0-results.zip` from the
+[v1.0.0 release](https://github.com/giampyhatesyou/OpenInterBias/releases) and unzip it in the
+repository root: it fills `results/` with the stage-5 outputs, the LLaVA answers of the
+open-set runs, the selected caption IDs and a `SHA256SUMS` file.
+
+The figures need only the stage-5 outputs:
+
+```bash
+python intersectional/make_openset_plots.py
+```
+
+To re-run stage 5, first rebuild the two caption subsets from the OpenBias proposals
+(`proposed_biases/coco/3/coco_train.json`, Drive link in
+[docs/OPENBIAS_README.md](docs/OPENBIAS_README.md)); they are not redistributed here:
+
+```bash
+python - <<'PY'
+import json
+full = json.load(open("proposed_biases/coco/3/coco_train.json"))["bias_proposal"]
+for name in ("openset", "ctxopen"):
+    ids = set(open(f"results/caption_ids/coco_train_{name}.txt").read().split())
+    subset = [e for e in full if str(e["caption_id"]) in ids]
+    with open(f"proposed_biases/coco/3/coco_train_{name}.json", "w") as f:
+        json.dump({"bias_proposal": subset}, f)
+PY
+```
+
+Then score the open-set scan (raw and leakage-filtered) and the context-aware run:
+
+```bash
+export PYTHONHASHSEED=0
+cp -r results/VQA/coco_openset results/VQA/coco_opensetclean
+python intersectional/run_analysis.py --dataset coco_openset --generator sd-xl \
+    --vqa_model llava-1.5-13b --mode generated --min_support 30 --fdr_q 0.05 \
+    --proposed_biases proposed_biases/coco/3/coco_train_openset.json
+python intersectional/run_analysis.py --dataset coco_opensetclean --generator sd-xl \
+    --vqa_model llava-1.5-13b --mode generated --min_support 30 --fdr_q 0.05 --exclude_leaky \
+    --proposed_biases proposed_biases/coco/3/coco_train_openset.json
+python intersectional/run_analysis.py --dataset coco_ctxopen --generator sd-xl \
+    --vqa_model llava-1.5-13b --mode generated --min_support 30 \
+    --proposed_biases proposed_biases/coco/3/coco_train_ctxopen.json
+```
+
+Expected: the numbers of [RESULTS.md](RESULTS.md) (34 pairs in the FDR family, 15 discoveries
+raw, 12 after the leakage filter).
+
 ## Output map
 
 | artifact | where |
