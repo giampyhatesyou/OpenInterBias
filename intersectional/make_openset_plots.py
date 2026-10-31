@@ -172,7 +172,9 @@ def heatmaps(clean_ja):
         for a, b in pooled:
             if a in ca and b in cb:
                 M[ca.index(a), cb.index(b)] += 1
-        M = M / np.maximum(M.sum(axis=1, keepdims=True), 1)  # row-normalized
+        # P(column | row) over ALL classes of the row, not only the six shown: a row with many
+        # rare classes then sums to less than 1 instead of overstating the classes on screen
+        M = M / np.array([fa[a] for a in ca], dtype=float)[:, None]
         im = ax.imshow(M, cmap="Oranges", vmin=0, vmax=1, aspect="auto")
         ax.set_xticks(range(len(cb)), cb, rotation=35, ha="right", fontsize=8)
         ax.set_yticks(range(len(ca)), ca, fontsize=8)
@@ -185,8 +187,8 @@ def heatmaps(clean_ja):
                 if M[i, j] >= 0.005:
                     ax.text(j, i, f"{M[i, j]:.2f}", ha="center", va="center", fontsize=7,
                             color="white" if M[i, j] > 0.55 else "black")
-    fig.suptitle("What the discovered couplings look like (row-normalized joints, "
-                 "leakage-filtered)", y=1.04)
+    fig.suptitle("What the discovered couplings look like (P(column | row), six most frequent "
+                 "classes shown, leakage-filtered)", y=1.04)
     plt.savefig(f"{OUT}/joint_heatmaps.png", dpi=200, bbox_inches="tight")
     plt.close()
 
