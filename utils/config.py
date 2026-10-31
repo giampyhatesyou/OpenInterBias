@@ -460,7 +460,10 @@ GEN_SETTING = {
     # The maximum support per cluster is computed. 
     # Then, the biases with <bias_support>/<max_support> < <filter_threshold> are filtered out.
     # Below are the settings for the filtering.
+    # CHANGED (fork) - START: reduced generation budget for our baseline run (upstream value: 100).
+    # intersectional/apply_demo_config.py patches this exact line, so keep it as is.
     'max_prompts_per_bias': 2, # maximum number of prompts per bias, e.g., if a specific bias has N>max_prompts_per_bias support, only the first <max_prompts_per_bias> prompts will be used
+    # CHANGED (fork) - END
     'filter_threshold': 0.50, # This threshold filter out the biases with low support with respect to the maximum support of the cluster. 
     'hard_threshold': 0, # at least <hard_threshold> support prompts must be present for a bias to be considered
     'merge_threshold': 0.75, # if a class cluster has greater similarity than <merge_threshold> with another cluster, then the two are merged 
@@ -471,7 +474,9 @@ GEN_SETTING = {
         'inner_folder': '',
         'valid_bias_fn': valid_bias_generated_images,
         'filter_caption_fn': filter_caption_generated,
+        # CHANGED (fork) - START: one image per caption for our baseline run (upstream value: 10)
         'n-images': 1,
+        # CHANGED (fork) - END
         'all_images': False,
     },
     'flickr_30k': {
@@ -480,7 +485,9 @@ GEN_SETTING = {
         'inner_folder': '',
         'valid_bias_fn': valid_bias_generated_images,
         'filter_caption_fn': filter_caption_generated,
+        # CHANGED (fork) - START: one image per caption for our baseline run (upstream value: 10)
         'n-images': 1,
+        # CHANGED (fork) - END
         'all_images': False,
     }
 }

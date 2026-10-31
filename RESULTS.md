@@ -49,7 +49,9 @@ bias aggregated across prompts), not joint sampling at fixed prompt.
 
 - Changes to upstream files are delimited in-source by `# CHANGED (fork) - START/END` blocks:
   `utils/utils.py` (KeyError bugfix in `merge_class_clusters`), `utils/config.py` (paths via
-  environment variables), `make_plots.py` (`--vqa_model` choices from config),
+  environment variables, and a reduced generation budget for our baseline run:
+  `max_prompts_per_bias` 100 → 2 and `n-images` 10 → 1, so the stage 1–4 baseline here is
+  smaller than the paper's setup), `make_plots.py` (`--vqa_model` choices from config),
   `requirements.txt` (pinned dependency set). `utils/synonyms.json` is also changed
   (107 → 59,315 keys, generated offline by `intersectional/complete_synonyms.py` to remove a
   runtime ConceptNet-API stall) — JSON cannot carry markers, recorded here.

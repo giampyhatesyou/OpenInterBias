@@ -37,9 +37,10 @@ python make_plots.py --generator sd-xl --dataset coco --mode generated
 ```
 Expected: 6,384 caption folders in `sd_generated_dataset/coco/train/sd-xl/`; 6,384 keys in
 `results/VQA/coco/.../vqa_answers.json`; race is the strongest single-attribute bias
-(intensity ≈ 0.5). Note: `max_prompts_per_bias = 2` in `utils/config.py` caps which captions
-each bias is generated AND VQA-questioned on, so attribute *pairs* are starved here (max
-realized pair support 51) — that is what steps 2–3 fix.
+(intensity ≈ 0.5). This baseline runs with a reduced budget (`max_prompts_per_bias = 2` and
+`n-images = 1`, against the upstream defaults of 100 and 10). Note: `max_prompts_per_bias`
+caps which captions each bias is generated AND VQA-questioned on, so attribute *pairs* are
+starved here (max realized pair support 51) — that is what steps 2–3 fix.
 
 ## 2. Closed-set demographic scale-up (stage 5, first version)
 
