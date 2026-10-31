@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install numpy pytest
+      # Stage-5 analysis tests run on CPU with numpy only. Tests that need torch, matplotlib
+      # or the 153 MB COCO proposals file skip; -rs prints why.
+      - name: Run tests
+        env:
+          PYTHONHASHSEED: "0"
+        run: python -m pytest tests -q -rs

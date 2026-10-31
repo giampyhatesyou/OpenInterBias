@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: "If you use OpenInterBias, please cite it as below, and also cite OpenBias, on which it builds."
+title: "OpenInterBias: open-set discovery of intersectional bias in text-to-image models"
+type: software
+version: "1.0.0"
+authors:
+  - given-names: Andrea
+    family-names: Giampietro
+  - given-names: Irene
+    family-names: Verria
+repository-code: "https://github.com/giampyhatesyou/OpenInterBias"
+license: MIT
+abstract: >-
+  A post-hoc extension of OpenBias from single-attribute to intersectional (joint-attribute)
+  bias detection in text-to-image models. It scans every same-subject attribute pair proposed
+  by the LLM, measures dependence with bias-corrected normalized mutual information, tests it
+  with permutation tests under Benjamini-Hochberg FDR control, and filters out prompts that
+  already state one of the attributes.
+keywords:
+  - text-to-image
+  - bias detection
+  - intersectionality
+  - fairness
+  - mutual information
+  - multiple testing
+references:
+  - type: conference-paper
+    title: "OpenBias: Open-set Bias Detection in Text-to-Image Generative Models"
+    authors:
+      - family-names: "D'Incà"
+        given-names: Moreno
+      - family-names: Peruzzo
+        given-names: Elia
+      - family-names: Mancini
+        given-names: Massimiliano
+      - family-names: Xu
+        given-names: Dejia
+      - family-names: Goel
+        given-names: Vidit
+      - family-names: Xu
+        given-names: Xingqian
+      - family-names: Wang
+        given-names: Zhangyang
+      - family-names: Shi
+        given-names: Humphrey
+      - family-names: Sebe
+        given-names: Nicu
+    collection-title: "Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)"
+    year: 2024
+    start: 12225
+    end: 12235
+    url: "https://openaccess.thecvf.com/content/CVPR2024/html/DInca_OpenBias_Open-set_Bias_Detection_in_Text-to-Image_Generative_Models_CVPR_2024_paper.html"
