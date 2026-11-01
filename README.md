@@ -5,7 +5,7 @@
 [![tests](https://github.com/giampyhatesyou/OpenInterBias/actions/workflows/tests.yml/badge.svg)](https://github.com/giampyhatesyou/OpenInterBias/actions/workflows/tests.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 
-Andrea Giampietro · Irene Verria (equal contribution)
+Andrea Giampietro · Irene Verria
 
 Built on [OpenBias](https://github.com/Picsart-AI-Research/OpenBias) (D'Incà et al., CVPR 2024).
 The OpenBias pipeline is used as is, apart from a few changes listed [below](#changes-to-openbias);
